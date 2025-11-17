@@ -35,7 +35,7 @@ class ProcessBuilderWindow(QWidget):
     window_closed = pyqtSignal()
 
     def __init__(self, config_manager=None, process_controller=None,
-                 process_id=None, parent=None):
+                 process_id=None, list_controller=None, parent=None):
         """
         Initialize ProcessBuilderWindow
 
@@ -43,6 +43,7 @@ class ProcessBuilderWindow(QWidget):
             config_manager: ConfigManager instance
             process_controller: ProcessController instance
             process_id: ID of process to edit (None for new process)
+            list_controller: ListController instance (optional)
             parent: Parent widget
         """
         super().__init__(parent)
@@ -50,6 +51,7 @@ class ProcessBuilderWindow(QWidget):
         self.process_controller = process_controller
         self.process_id = process_id
         self.editing_mode = process_id is not None
+        self.list_controller = list_controller
 
         # Current process being built/edited
         self.current_process = None
@@ -57,6 +59,10 @@ class ProcessBuilderWindow(QWidget):
         # Available items for adding to process
         self.available_items = []
         self.filtered_items = []
+
+        # Available lists (grouped items)
+        self.available_lists = []
+        self.filtered_lists = []
 
         # Step widgets in constructor
         self.step_widgets = []
@@ -558,21 +564,38 @@ class ProcessBuilderWindow(QWidget):
             self.load_process_for_editing()
 
     def load_all_items(self):
-        """Load all items from all categories"""
+        """Load all items and lists from all categories"""
         if not self.config_manager:
             return
 
         self.available_items = []
+        self.available_lists = []
+
         categories = self.config_manager.get_categories()
 
         for category in categories:
-            # Get items from this category (excluding list items)
-            items = [item for item in category.items if not item.is_list_item()]
-            self.available_items.extend(items)
+            # Separate regular items from list items
+            for item in category.items:
+                if not item.is_list_item():
+                    # Regular item
+                    self.available_items.append(item)
 
-        logger.info(f"Loaded {len(self.available_items)} items")
+            # Get lists for this category
+            if self.list_controller:
+                try:
+                    lists = self.list_controller.get_lists(category.id)
+                    # Add category info to each list
+                    for list_data in lists:
+                        list_data['category_id'] = category.id
+                        list_data['category_name'] = category.name
+                    self.available_lists.extend(lists)
+                except Exception as e:
+                    logger.error(f"Error loading lists for category {category.id}: {e}")
+
+        logger.info(f"Loaded {len(self.available_items)} items and {len(self.available_lists)} lists")
         self.filtered_items = self.available_items.copy()
-        self.display_items()
+        self.filtered_lists = self.available_lists.copy()
+        self.display_items_and_lists()
 
     def load_process_for_editing(self):
         """Load existing process data for editing"""
@@ -759,26 +782,71 @@ class ProcessBuilderWindow(QWidget):
 
     # ==================== ITEM DISPLAY ====================
 
-    def display_items(self):
-        """Display filtered items"""
+    def display_items_and_lists(self):
+        """Display filtered items and lists in separate sections"""
         # Clear existing items
         while self.items_layout.count() > 1:  # Keep stretch
             item = self.items_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        # Add filtered items
-        for item in self.filtered_items:
-            item_btn = ItemButton(item)
-            item_btn.setMaximumHeight(60)
+        # === SECCIÓN DE ITEMS ===
+        if self.filtered_items:
+            # Section header
+            items_header = QLabel(f"━━━ Items ({len(self.filtered_items)}) ━━━")
+            items_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            items_header.setStyleSheet("""
+                QLabel {
+                    color: #888888;
+                    font-size: 10pt;
+                    font-weight: bold;
+                    padding: 8px;
+                    background-color: transparent;
+                }
+            """)
+            self.items_layout.insertWidget(self.items_layout.count() - 1, items_header)
 
-            # Double-click to add to process
-            item_btn.mouseDoubleClickEvent = lambda event, i=item: self.on_item_double_clicked(i)
+            # Add filtered items
+            for item in self.filtered_items:
+                item_btn = ItemButton(item)
+                item_btn.setMaximumHeight(60)
 
-            self.items_layout.insertWidget(self.items_layout.count() - 1, item_btn)
+                # Double-click to add to process
+                item_btn.mouseDoubleClickEvent = lambda event, i=item: self.on_item_double_clicked(i)
 
-        # Update count
-        self.items_count_label.setText(f"({len(self.filtered_items)})")
+                self.items_layout.insertWidget(self.items_layout.count() - 1, item_btn)
+
+        # === SECCIÓN DE LISTAS ===
+        if self.filtered_lists:
+            # Spacer entre secciones
+            if self.filtered_items:
+                spacer_label = QLabel("")
+                spacer_label.setFixedHeight(10)
+                spacer_label.setStyleSheet("background-color: transparent;")
+                self.items_layout.insertWidget(self.items_layout.count() - 1, spacer_label)
+
+            # Section header
+            lists_header = QLabel(f"━━━ Listas ({len(self.filtered_lists)}) ━━━")
+            lists_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lists_header.setStyleSheet("""
+                QLabel {
+                    color: #888888;
+                    font-size: 10pt;
+                    font-weight: bold;
+                    padding: 8px;
+                    background-color: transparent;
+                }
+            """)
+            self.items_layout.insertWidget(self.items_layout.count() - 1, lists_header)
+
+            # Add filtered lists
+            for list_data in self.filtered_lists:
+                list_widget = self.create_simple_list_widget(list_data)
+                self.items_layout.insertWidget(self.items_layout.count() - 1, list_widget)
+
+        # Update total count
+        total_count = len(self.filtered_items) + len(self.filtered_lists)
+        self.items_count_label.setText(f"({total_count})")
 
     def on_search_changed(self, query: str):
         """Handle search query change"""
@@ -789,28 +857,88 @@ class ProcessBuilderWindow(QWidget):
         self.apply_filters()
 
     def apply_filters(self):
-        """Apply all active filters"""
-        filtered = self.available_items.copy()
+        """Apply all active filters to items and lists"""
+        filtered_items = self.available_items.copy()
+        filtered_lists = self.available_lists.copy()
 
-        # Apply category filter
+        # Get filter values
         selected_category_id = self.category_combo.currentData()
-        if selected_category_id is not None:
-            filtered = [item for item in filtered if item.category_id == selected_category_id]
-
-        # Apply type filter
         selected_type = self.type_combo.currentData()
+        search_query = self.items_search.search_input.text().strip().lower()
+
+        # Apply category filter to items
+        if selected_category_id is not None:
+            filtered_items = [item for item in filtered_items if item.category_id == selected_category_id]
+            filtered_lists = [lst for lst in filtered_lists if lst.get('category_id') == selected_category_id]
+
+        # Apply type filter to items (lists don't have type)
         if selected_type is not None:
-            filtered = [item for item in filtered if item.type == selected_type]
+            filtered_items = [item for item in filtered_items if item.type == selected_type]
 
         # Apply search filter
-        search_query = self.items_search.search_input.text().strip().lower()
         if search_query:
-            filtered = [item for item in filtered
-                       if search_query in item.label.lower() or
-                          search_query in (item.content or "").lower()]
+            # Filter items by label or content
+            filtered_items = [item for item in filtered_items
+                           if search_query in item.label.lower() or
+                              search_query in (item.content or "").lower()]
 
-        self.filtered_items = filtered
-        self.display_items()
+            # Filter lists by list_group name
+            filtered_lists = [lst for lst in filtered_lists
+                           if search_query in lst.get('list_group', '').lower()]
+
+        self.filtered_items = filtered_items
+        self.filtered_lists = filtered_lists
+        self.display_items_and_lists()
+
+    def create_simple_list_widget(self, list_data: dict):
+        """Create a simple collapsible widget for a list"""
+        from PyQt6.QtWidgets import QFrame, QPushButton
+        from PyQt6.QtGui import QFont
+
+        container = QFrame()
+        container.setStyleSheet("""
+            QFrame {
+                background-color: #2b2b2b;
+                border: 1px solid #3a3a3a;
+                border-radius: 6px;
+            }
+            QFrame:hover {
+                border-color: #4a9eff;
+                background-color: #303030;
+            }
+        """)
+        container.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
+
+        # Icon
+        icon_label = QLabel("📝")
+        icon_label.setFixedWidth(20)
+        icon_font = QFont()
+        icon_font.setPointSize(12)
+        icon_label.setFont(icon_font)
+        layout.addWidget(icon_label)
+
+        # List name
+        name_label = QLabel(list_data.get('list_group', 'Lista'))
+        name_font = QFont()
+        name_font.setBold(True)
+        name_font.setPointSize(10)
+        name_label.setFont(name_font)
+        name_label.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(name_label, stretch=1)
+
+        # Item count
+        count_label = QLabel(f"{list_data.get('item_count', 0)} pasos")
+        count_label.setStyleSheet("color: #888888; font-size: 9pt;")
+        layout.addWidget(count_label)
+
+        # Double-click to add all items to process
+        container.mouseDoubleClickEvent = lambda event: self.on_list_double_clicked(list_data)
+
+        return container
 
     def on_item_double_clicked(self, item):
         """Handle double-click on item to add to process"""
@@ -829,6 +957,45 @@ class ProcessBuilderWindow(QWidget):
         )
 
         self.add_step_to_constructor(step)
+
+    def on_list_double_clicked(self, list_data: dict):
+        """Handle double-click on list to add all items to process"""
+        list_group = list_data.get('list_group')
+        category_id = list_data.get('category_id')
+
+        logger.info(f"Adding list to process: {list_group}")
+
+        if not self.list_controller:
+            logger.error("ListController not available")
+            return
+
+        try:
+            # Get all items in the list
+            list_items = self.list_controller.get_list_items(category_id, list_group)
+
+            if not list_items:
+                logger.warning(f"No items found in list {list_group}")
+                return
+
+            # Add each item as a step
+            for item_data in list_items:
+                step = ProcessStep(
+                    item_id=item_data.get('id'),
+                    step_order=len(self.step_widgets) + 1,
+                    item_label=item_data.get('label', 'Sin nombre'),
+                    item_content=item_data.get('content', ''),
+                    item_type=item_data.get('type', 'TEXT'),
+                    item_icon=item_data.get('icon', ''),
+                    item_is_sensitive=item_data.get('is_sensitive', False),
+                    is_enabled=True
+                )
+                self.add_step_to_constructor(step)
+
+            logger.info(f"Added {len(list_items)} items from list {list_group} to process")
+
+        except Exception as e:
+            logger.error(f"Error adding list to process: {e}", exc_info=True)
+            QMessageBox.warning(self, "Error", f"Error al agregar lista: {str(e)}")
 
     # ==================== STEP MANAGEMENT ====================
 

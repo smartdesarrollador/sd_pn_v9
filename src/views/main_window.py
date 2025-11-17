@@ -1159,6 +1159,7 @@ class MainWindow(QMainWindow):
                 config_manager=self.controller.config_manager,
                 process_controller=self.controller.process_controller,
                 process_id=None,  # None = create new process
+                list_controller=self.controller.list_controller,
                 parent=self
             )
 
@@ -1388,6 +1389,7 @@ class MainWindow(QMainWindow):
                 config_manager=self.controller.config_manager,
                 process_controller=self.controller.process_controller,
                 process_id=process_id,  # Edit mode
+                list_controller=self.controller.list_controller,
                 parent=self
             )
 
