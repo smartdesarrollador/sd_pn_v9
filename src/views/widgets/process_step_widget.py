@@ -46,6 +46,14 @@ class ProcessStepWidget(QWidget):
 
     def init_ui(self):
         """Initialize UI"""
+        # Check if this step is a component
+        if hasattr(self.step, 'is_component') and self.step.is_component:
+            self._render_component()
+        else:
+            self._render_regular_step()
+
+    def _render_regular_step(self):
+        """Render a regular (non-component) step"""
         # Main layout
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
@@ -361,3 +369,446 @@ class ProcessStepWidget(QWidget):
 
         # Restore order state
         self.update_order(current_order, current_is_first, current_is_last)
+
+    # ==================== Component Rendering ====================
+
+    def _render_component(self):
+        """Render a component step in the constructor (simplified view)"""
+        component_type = getattr(self.step, 'name_component', None)
+
+        # Render as a regular step but with component indicator
+        # Main container
+        container_layout = QHBoxLayout(self)
+        container_layout.setContentsMargins(5, 5, 5, 5)
+        container_layout.setSpacing(10)
+
+        # Order number
+        self.order_label = QLabel(f"{self.step.step_order}.")
+        self.order_label.setStyleSheet("""
+            QLabel {
+                color: #007acc;
+                font-size: 14pt;
+                font-weight: bold;
+                min-width: 30px;
+            }
+        """)
+        container_layout.addWidget(self.order_label)
+
+        # Content area
+        content_layout = QVBoxLayout()
+        content_layout.setSpacing(5)
+
+        # Component indicator with icon
+        component_icons = {
+            'separador': '━',
+            'nota': '💡',
+            'alerta': '⚠',
+            'grupo': '📁'
+        }
+        icon = component_icons.get(component_type, '🧩')
+
+        component_label = QLabel(f"{icon} COMPONENTE: {component_type or 'Desconocido'}")
+        component_label.setStyleSheet("""
+            QLabel {
+                color: #9370DB;
+                font-size: 11pt;
+                font-weight: bold;
+                padding: 8px;
+                background-color: #2d2d3d;
+                border-left: 4px solid #9370DB;
+                border-radius: 4px;
+            }
+        """)
+        content_layout.addWidget(component_label)
+
+        # Description
+        description = self.step.item_label or f"Componente visual: {component_type}"
+        desc_label = QLabel(description)
+        desc_label.setStyleSheet("""
+            QLabel {
+                color: #b0b0b0;
+                font-size: 9pt;
+                padding-left: 12px;
+            }
+        """)
+        desc_label.setWordWrap(True)
+        content_layout.addWidget(desc_label)
+
+        container_layout.addLayout(content_layout, stretch=1)
+
+        # Control buttons (move up/down, delete)
+        # Action buttons for ordering
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setSpacing(3)
+
+        # Move up button
+        self.up_button = QPushButton("↑")
+        self.up_button.setFixedSize(24, 24)
+        self.up_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.up_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QPushButton:hover {
+                background-color: #9370DB;
+                border-color: #9370DB;
+            }
+            QPushButton:disabled {
+                background-color: #2d2d2d;
+                color: #555555;
+                border-color: #333333;
+            }
+        """)
+        self.up_button.setEnabled(not self.is_first)
+        self.up_button.setToolTip("Mover arriba")
+        self.up_button.clicked.connect(self.on_move_up)
+        buttons_layout.addWidget(self.up_button)
+
+        # Move down button
+        self.down_button = QPushButton("↓")
+        self.down_button.setFixedSize(24, 24)
+        self.down_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.down_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            QPushButton:hover {
+                background-color: #9370DB;
+                border-color: #9370DB;
+            }
+            QPushButton:disabled {
+                background-color: #2d2d2d;
+                color: #555555;
+                border-color: #333333;
+            }
+        """)
+        self.down_button.setEnabled(not self.is_last)
+        self.down_button.setToolTip("Mover abajo")
+        self.down_button.clicked.connect(self.on_move_down)
+        buttons_layout.addWidget(self.down_button)
+
+        container_layout.addLayout(buttons_layout)
+
+        # Delete button
+        delete_buttons_layout = QVBoxLayout()
+        delete_buttons_layout.setSpacing(3)
+
+        delete_button = QPushButton("✕")
+        delete_button.setFixedSize(24, 24)
+        delete_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        delete_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e4475b;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                font-size: 12pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #e4475b;
+                color: #ffffff;
+                border-color: #e4475b;
+            }
+        """)
+        delete_button.setToolTip("Eliminar componente")
+        delete_button.clicked.connect(self.on_delete)
+        delete_buttons_layout.addWidget(delete_button)
+
+        container_layout.addLayout(delete_buttons_layout)
+
+    def _render_separator(self, config):
+        """Render a separator component"""
+        # Main layout
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(5, 10, 5, 10)
+
+        # Get configuration
+        color = config.get('color', '#ff6b6b')
+        thickness = config.get('thickness', 2)
+        style = config.get('style', 'solid')
+
+        # Create separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFixedHeight(thickness)
+
+        # Map style to Qt style
+        border_style = 'solid'
+        if style == 'dashed':
+            border_style = 'dashed'
+        elif style == 'dotted':
+            border_style = 'dotted'
+        elif style == 'double':
+            thickness = max(4, thickness)  # Double needs more space
+
+        separator.setStyleSheet(f"""
+            QFrame {{
+                background-color: {color};
+                border: none;
+                border-top: {thickness}px {border_style} {color};
+            }}
+        """)
+
+        main_layout.addWidget(separator, stretch=1)
+
+        # Add delete button on the right
+        delete_button = QPushButton("✕")
+        delete_button.setFixedSize(20, 20)
+        delete_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        delete_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e4475b;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                font-size: 10pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #e4475b;
+                color: #ffffff;
+            }
+        """)
+        delete_button.setToolTip("Eliminar separador")
+        delete_button.clicked.connect(self.on_delete)
+        main_layout.addWidget(delete_button)
+
+    def _render_note(self, config):
+        """Render a note component"""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Get configuration
+        background = config.get('background', '#fff3cd')
+        icon = config.get('icon', '💡')
+        dismissible = config.get('dismissible', False)
+
+        # Create note container
+        note_widget = QFrame()
+        note_widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {background};
+                border-left: 4px solid #f39c12;
+                border-radius: 4px;
+                padding: 10px;
+            }}
+        """)
+
+        note_layout = QHBoxLayout(note_widget)
+
+        # Icon
+        icon_label = QLabel(icon)
+        icon_label.setStyleSheet("font-size: 20pt;")
+        note_layout.addWidget(icon_label)
+
+        # Content
+        content_label = QLabel(self.step.item_label or "Nota informativa")
+        content_label.setStyleSheet("color: #333333; font-size: 10pt;")
+        content_label.setWordWrap(True)
+        note_layout.addWidget(content_label, stretch=1)
+
+        # Delete button
+        delete_btn = QPushButton("✕")
+        delete_btn.setFixedSize(20, 20)
+        delete_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #888888;
+                border: none;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                color: #e4475b;
+            }
+        """)
+        delete_btn.setToolTip("Eliminar nota")
+        delete_btn.clicked.connect(self.on_delete)
+        note_layout.addWidget(delete_btn)
+
+        main_layout.addWidget(note_widget)
+
+    def _render_alert(self, config):
+        """Render an alert component"""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Get configuration
+        alert_type = config.get('type', 'warning')
+        title = config.get('title', 'Atención')
+        dismissible = config.get('dismissible', True)
+
+        # Colors by type
+        colors = {
+            'info': '#3498db',
+            'warning': '#f39c12',
+            'error': '#e74c3c',
+            'success': '#2ecc71'
+        }
+        color = colors.get(alert_type, '#f39c12')
+
+        # Icons by type
+        icons = {
+            'info': 'ℹ️',
+            'warning': '⚠️',
+            'error': '❌',
+            'success': '✅'
+        }
+        icon = icons.get(alert_type, '⚠️')
+
+        # Create alert container
+        alert_widget = QFrame()
+        alert_widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {color}22;
+                border-left: 4px solid {color};
+                border-radius: 4px;
+                padding: 10px;
+            }}
+        """)
+
+        alert_layout = QVBoxLayout(alert_widget)
+
+        # Header with icon and title
+        header_layout = QHBoxLayout()
+
+        icon_label = QLabel(icon)
+        icon_label.setStyleSheet("font-size: 18pt;")
+        header_layout.addWidget(icon_label)
+
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"color: {color}; font-size: 11pt; font-weight: bold;")
+        header_layout.addWidget(title_label, stretch=1)
+
+        # Delete button
+        delete_btn = QPushButton("✕")
+        delete_btn.setFixedSize(20, 20)
+        delete_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #888888;
+                border: none;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                color: #e4475b;
+            }
+        """)
+        delete_btn.setToolTip("Eliminar alerta")
+        delete_btn.clicked.connect(self.on_delete)
+        header_layout.addWidget(delete_btn)
+
+        alert_layout.addLayout(header_layout)
+
+        # Content
+        if self.step.item_label:
+            content_label = QLabel(self.step.item_label)
+            content_label.setStyleSheet("color: #333333; font-size: 9pt; padding-left: 30px;")
+            content_label.setWordWrap(True)
+            alert_layout.addWidget(content_label)
+
+        main_layout.addWidget(alert_widget)
+
+    def _render_group(self, config):
+        """Render a group component"""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Get configuration
+        color = config.get('color', '#007acc')
+        collapsible = config.get('collapsible', True)
+        expanded = config.get('expanded', True)
+
+        # Create group container
+        group_widget = QFrame()
+        group_widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: #2d2d2d;
+                border: 2px solid {color};
+                border-radius: 6px;
+            }}
+        """)
+
+        group_layout = QVBoxLayout(group_widget)
+        group_layout.setContentsMargins(0, 0, 0, 0)
+        group_layout.setSpacing(0)
+
+        # Header
+        header = QPushButton(f"📁 {self.step.item_label or 'Grupo'}")
+        header.setCheckable(collapsible)
+        header.setChecked(expanded)
+        header.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        header.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {color};
+                color: white;
+                text-align: left;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+                font-size: 10pt;
+                border-radius: 4px 4px 0 0;
+            }}
+            QPushButton:hover {{
+                background-color: {color}dd;
+            }}
+        """)
+        group_layout.addWidget(header)
+
+        # Info label (placeholder for grouped items)
+        info_label = QLabel("   Los items del grupo aparecerán aquí durante la ejecución")
+        info_label.setStyleSheet("""
+            QLabel {
+                color: #888888;
+                font-size: 8pt;
+                font-style: italic;
+                padding: 8px;
+            }
+        """)
+        group_layout.addWidget(info_label)
+
+        # Delete button at bottom right
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        delete_btn = QPushButton("✕ Eliminar")
+        delete_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #e4475b;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 8pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #e4475b;
+                color: #ffffff;
+            }
+        """)
+        delete_btn.setToolTip("Eliminar grupo")
+        delete_btn.clicked.connect(self.on_delete)
+        button_layout.addWidget(delete_btn)
+
+        group_layout.addLayout(button_layout)
+
+        main_layout.addWidget(group_widget)

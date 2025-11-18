@@ -13,6 +13,7 @@ from core.pinned_panels_manager import PinnedPanelsManager
 from core.simple_browser_manager import SimpleBrowserManager
 from core.notebook_manager import NotebookManager
 from core.workarea_manager import WorkareaManager
+from core.component_manager import ComponentManager
 from controllers.clipboard_controller import ClipboardController
 from controllers.list_controller import ListController
 from controllers.process_controller import ProcessController
@@ -35,6 +36,7 @@ class MainController:
         self.browser_manager = SimpleBrowserManager(self.config_manager.db, controller=self)
         self.notebook_manager = NotebookManager(self.config_manager.db)
         self.workarea_manager = WorkareaManager()
+        self.component_manager = ComponentManager(self.config_manager.db)
 
         # Initialize controllers
         self.clipboard_controller = ClipboardController(self.clipboard_manager)

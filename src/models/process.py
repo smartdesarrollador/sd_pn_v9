@@ -28,6 +28,11 @@ class ProcessStep:
     item_icon: Optional[str] = None
     item_is_sensitive: bool = False
 
+    # Component fields (for visual components)
+    is_component: bool = False
+    name_component: Optional[str] = None
+    component_config: dict = field(default_factory=dict)
+
     # Customization
     custom_label: Optional[str] = None
     notes: Optional[str] = None
@@ -63,6 +68,9 @@ class ProcessStep:
             'item_type': self.item_type,
             'item_icon': self.item_icon,
             'item_is_sensitive': self.item_is_sensitive,
+            'is_component': self.is_component,
+            'name_component': self.name_component,
+            'component_config': self.component_config,
             'custom_label': self.custom_label,
             'notes': self.notes,
             'is_optional': self.is_optional,
@@ -93,6 +101,15 @@ class ProcessStep:
             except (ValueError, TypeError):
                 pass
 
+        # Parse component_config if it's a JSON string
+        component_config = data.get('component_config', {})
+        if isinstance(component_config, str):
+            import json
+            try:
+                component_config = json.loads(component_config)
+            except json.JSONDecodeError:
+                component_config = {}
+
         return cls(
             id=data.get('id'),
             process_id=data.get('process_id'),
@@ -103,6 +120,9 @@ class ProcessStep:
             item_type=data.get('item_type', 'TEXT'),
             item_icon=data.get('item_icon'),
             item_is_sensitive=bool(data.get('item_is_sensitive', False)),
+            is_component=bool(data.get('is_component', False)),
+            name_component=data.get('name_component'),
+            component_config=component_config,
             custom_label=data.get('custom_label'),
             notes=data.get('notes'),
             is_optional=bool(data.get('is_optional', False)),

@@ -216,6 +216,7 @@ class MainWindow(QMainWindow):
         self.sidebar.browser_clicked.connect(self.on_browser_clicked)
         self.sidebar.dashboard_clicked.connect(self.open_structure_dashboard)
         self.sidebar.settings_clicked.connect(self.open_settings)
+        self.sidebar.component_manager_clicked.connect(self.open_component_manager)
         self.sidebar.category_filter_clicked.connect(self.on_category_filter_clicked)
         self.sidebar.refresh_clicked.connect(self.on_refresh_clicked)
         self.sidebar.quick_create_clicked.connect(self.on_quick_create_clicked)
@@ -1160,6 +1161,7 @@ class MainWindow(QMainWindow):
                 process_controller=self.controller.process_controller,
                 process_id=None,  # None = create new process
                 list_controller=self.controller.list_controller,
+                component_manager=self.controller.component_manager,
                 parent=self
             )
 
@@ -1390,6 +1392,7 @@ class MainWindow(QMainWindow):
                 process_controller=self.controller.process_controller,
                 process_id=process_id,  # Edit mode
                 list_controller=self.controller.list_controller,
+                component_manager=self.controller.component_manager,
                 parent=self
             )
 
@@ -1672,6 +1675,24 @@ class MainWindow(QMainWindow):
     def show_settings(self):
         """Show settings dialog (called from tray)"""
         self.open_settings()
+
+    def open_component_manager(self):
+        """Open component manager dialog"""
+        print("Opening component manager...")
+        from views.dialogs.component_manager_dialog import ComponentManagerDialog
+
+        dialog = ComponentManagerDialog(
+            component_manager=self.controller.component_manager,
+            parent=self
+        )
+        dialog.component_types_changed.connect(self.on_component_types_changed)
+        dialog.exec()
+
+    def on_component_types_changed(self):
+        """Handle component types changes"""
+        print("Component types changed")
+        # Invalidar caché del component manager
+        self.controller.component_manager.invalidate_cache()
 
     def on_settings_changed(self):
         """Handle settings changes"""

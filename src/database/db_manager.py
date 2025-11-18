@@ -713,6 +713,10 @@ class DBManager:
                  is_active: bool = True, is_archived: bool = False,
                  is_list: bool = False, list_group: str = None,
                  orden_lista: int = 0,
+                 # Component fields
+                 is_component: bool = False,
+                 name_component: str = None,
+                 component_config: Dict[str, Any] = None,
                  # File metadata fields (for TYPE PATH)
                  file_size: int = None,
                  file_type: str = None,
@@ -757,14 +761,16 @@ class DBManager:
             logger.info(f"Content encrypted for sensitive item: {label}")
 
         tags_json = json.dumps(tags or [])
+        component_config_json = json.dumps(component_config or {})
+
         query = """
             INSERT INTO items
-            (category_id, label, content, type, icon, is_sensitive, is_favorite, tags, description, working_dir, color, badge, is_active, is_archived, is_list, list_group, orden_lista, file_size, file_type, file_extension, original_filename, file_hash, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            (category_id, label, content, type, icon, is_sensitive, is_favorite, tags, description, working_dir, color, badge, is_active, is_archived, is_list, list_group, orden_lista, is_component, name_component, component_config, file_size, file_type, file_extension, original_filename, file_hash, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """
         item_id = self.execute_update(
             query,
-            (category_id, label, content, item_type, icon, is_sensitive, is_favorite, tags_json, description, working_dir, color, badge, is_active, is_archived, is_list, list_group, orden_lista, file_size, file_type, file_extension, original_filename, file_hash)
+            (category_id, label, content, item_type, icon, is_sensitive, is_favorite, tags_json, description, working_dir, color, badge, is_active, is_archived, is_list, list_group, orden_lista, is_component, name_component, component_config_json, file_size, file_type, file_extension, original_filename, file_hash)
         )
         list_info = f", List: {list_group}[{orden_lista}]" if is_list else ""
         logger.info(f"Item added: {label} (ID: {item_id}, Sensitive: {is_sensitive}, Favorite: {is_favorite}, Active: {is_active}, Archived: {is_archived}{list_info})")
@@ -3577,6 +3583,148 @@ class DBManager:
         """, (process_id, limit))
 
         return [dict(row) for row in cursor.fetchall()]
+
+    # ==================== Component Types Management ====================
+
+    def get_component_types(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get all component types from database
+
+        Args:
+            active_only: If True, return only active component types
+
+        Returns:
+            List of component type dictionaries
+        """
+        conn = self.connect()
+        query = "SELECT * FROM component_types"
+
+        if active_only:
+            query += " WHERE is_active = 1"
+
+        query += " ORDER BY name"
+
+        cursor = conn.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_component_type_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific component type by name
+
+        Args:
+            name: Component type name
+
+        Returns:
+            Component type dictionary or None if not found
+        """
+        conn = self.connect()
+        cursor = conn.execute("""
+            SELECT * FROM component_types
+            WHERE name = ?
+        """, (name,))
+
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def add_component_type(
+        self,
+        name: str,
+        description: str,
+        default_config: str,
+        is_active: bool = True
+    ) -> Optional[int]:
+        """
+        Add a new component type to database
+
+        Args:
+            name: Component type name
+            description: Description of the component
+            default_config: Default configuration as JSON string
+            is_active: Whether the component is active
+
+        Returns:
+            ID of created component type, or None if failed
+        """
+        try:
+            with self.transaction() as conn:
+                cursor = conn.execute("""
+                    INSERT INTO component_types (name, description, default_config, is_active)
+                    VALUES (?, ?, ?, ?)
+                """, (name, description, default_config, is_active))
+
+                return cursor.lastrowid
+
+        except sqlite3.IntegrityError as e:
+            logger.error(f"Component type '{name}' already exists: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error adding component type: {e}")
+            return None
+
+    def update_component_type(self, component_type_id: int, **kwargs) -> bool:
+        """
+        Update a component type in database
+
+        Args:
+            component_type_id: ID of component type to update
+            **kwargs: Fields to update (name, description, default_config, is_active)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not kwargs:
+            return False
+
+        try:
+            # Build UPDATE query dynamically
+            fields = []
+            values = []
+
+            for key, value in kwargs.items():
+                if key in ['name', 'description', 'default_config', 'is_active']:
+                    fields.append(f"{key} = ?")
+                    values.append(value)
+
+            if not fields:
+                return False
+
+            values.append(component_type_id)
+
+            with self.transaction() as conn:
+                conn.execute(f"""
+                    UPDATE component_types
+                    SET {', '.join(fields)}
+                    WHERE id = ?
+                """, values)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error updating component type: {e}")
+            return False
+
+    def delete_component_type(self, component_type_id: int) -> bool:
+        """
+        Delete a component type from database
+
+        Args:
+            component_type_id: ID of component type to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            with self.transaction() as conn:
+                conn.execute("""
+                    DELETE FROM component_types
+                    WHERE id = ?
+                """, (component_type_id,))
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error deleting component type: {e}")
+            return False
 
     # ==================== Context Manager ====================
 

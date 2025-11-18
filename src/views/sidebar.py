@@ -24,6 +24,9 @@ class Sidebar(QWidget):
     # Signal emitted when settings button is clicked
     settings_clicked = pyqtSignal()
 
+    # Signal emitted when component manager button is clicked
+    component_manager_clicked = pyqtSignal()
+
     # Signal emitted when table creator button is clicked
     table_creator_clicked = pyqtSignal()
 
@@ -438,6 +441,35 @@ class Sidebar(QWidget):
         # self.pinned_panels_button.clicked.connect(self.on_pinned_panels_manager_clicked)
         # main_layout.addWidget(self.pinned_panels_button)
 
+        # Component manager button
+        self.component_manager_button = QPushButton("🧩")
+        self.component_manager_button.setFixedSize(70, 45)
+        self.component_manager_button.setToolTip("Gestor de Componentes")
+        self.component_manager_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.component_manager_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.theme.get_color('background_deep')};
+                color: {self.theme.get_color('text_secondary')};
+                border: none;
+                border-top: 2px solid {self.theme.get_color('surface')};
+                font-size: 16pt;
+            }}
+            QPushButton:hover {{
+                background-color: {self.theme.get_color('surface')};
+                color: {self.theme.get_color('primary')};
+            }}
+            QPushButton:pressed {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {self.theme.get_color('primary')},
+                    stop:1 {self.theme.get_color('accent')}
+                );
+                color: {self.theme.get_color('text_primary')};
+            }}
+        """)
+        self.component_manager_button.clicked.connect(self.on_component_manager_clicked)
+        main_layout.addWidget(self.component_manager_button)
+
         # Settings button at the bottom
         self.settings_button = QPushButton("⚙")
         self.settings_button.setFixedSize(70, 45)
@@ -676,6 +708,10 @@ class Sidebar(QWidget):
     def on_settings_clicked(self):
         """Handle settings button click"""
         self.settings_clicked.emit()
+
+    def on_component_manager_clicked(self):
+        """Handle component manager button click"""
+        self.component_manager_clicked.emit()
 
     def on_category_filter_clicked(self):
         """Handle category filter button click"""

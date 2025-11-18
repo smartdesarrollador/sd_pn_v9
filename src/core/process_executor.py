@@ -182,7 +182,15 @@ class ProcessExecutor(QObject):
             self.step_started.emit(process.id, step.step_order, step_label)
             logger.info(f"Executing step {step.step_order}: {step_label}")
 
-            # Copy content to clipboard
+            # Check if this step is a component
+            if hasattr(step, 'is_component') and step.is_component:
+                # Components are visual only - they don't execute actions
+                logger.info(f"Step {step.step_order} is a component ({step.name_component}) - skipping execution")
+                message = f"Component '{step.name_component}' displayed"
+                self.step_completed.emit(process.id, step.step_order, True, message)
+                return True, message
+
+            # Copy content to clipboard (for regular steps)
             if self.clipboard and step.item_content:
                 try:
                     self.clipboard.copy(step.item_content)

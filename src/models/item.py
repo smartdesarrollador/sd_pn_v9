@@ -36,6 +36,10 @@ class Item:
         is_list: bool = False,
         list_group: Optional[str] = None,
         orden_lista: int = 0,
+        # Campos de componentes visuales
+        is_component: bool = False,
+        name_component: Optional[str] = None,
+        component_config: Optional[Dict[str, Any]] = None,
         # Campos de metadatos de archivos (TYPE PATH)
         file_size: Optional[int] = None,
         file_type: Optional[str] = None,
@@ -60,6 +64,10 @@ class Item:
         self.is_list = is_list  # Indica si este item es parte de una lista
         self.list_group = list_group  # Nombre/identificador del grupo de lista
         self.orden_lista = orden_lista  # Posición del item dentro de la lista
+        # Campos de componentes visuales
+        self.is_component = is_component  # Indica si este item es un componente visual
+        self.name_component = name_component  # Tipo de componente (separador, nota, alerta, grupo)
+        self.component_config = component_config or {}  # Configuración JSON del componente
         # Campos de metadatos de archivos
         self.file_size = file_size  # Tamaño del archivo en bytes
         self.file_type = file_type  # Tipo de archivo (IMAGEN, VIDEO, PDF, etc.)
@@ -103,6 +111,10 @@ class Item:
             "is_list": self.is_list,
             "list_group": self.list_group,
             "orden_lista": self.orden_lista,
+            # Campos de componentes visuales
+            "is_component": self.is_component,
+            "name_component": self.name_component,
+            "component_config": self.component_config,
             # Campos de metadatos de archivos
             "file_size": self.file_size,
             "file_type": self.file_type,
@@ -138,6 +150,10 @@ class Item:
             is_list=data.get("is_list", False),
             list_group=data.get("list_group"),
             orden_lista=data.get("orden_lista", 0),
+            # Campos de componentes visuales
+            is_component=data.get("is_component", False),
+            name_component=data.get("name_component"),
+            component_config=data.get("component_config"),
             # Campos de metadatos de archivos
             file_size=data.get("file_size"),
             file_type=data.get("file_type"),
@@ -259,9 +275,41 @@ class Item:
         """
         return self.type == ItemType.PATH and self.file_hash is not None
 
+    # Métodos para componentes visuales
+    def is_component_item(self) -> bool:
+        """Retorna True si este item es un componente visual"""
+        return self.is_component == True or self.is_component == 1
+
+    def get_component_type(self) -> Optional[str]:
+        """Retorna el tipo de componente (separador, nota, alerta, grupo) o None"""
+        return self.name_component if self.is_component_item() else None
+
+    def get_component_config(self) -> Dict[str, Any]:
+        """Retorna la configuración del componente (diccionario vacío si no es componente)"""
+        return self.component_config if self.is_component_item() and self.component_config else {}
+
+    def set_as_component(self, component_type: str, config: Dict[str, Any]) -> None:
+        """
+        Configura este item como componente visual
+
+        Args:
+            component_type: Tipo de componente (separador, nota, alerta, grupo)
+            config: Diccionario de configuración del componente
+        """
+        self.is_component = True
+        self.name_component = component_type
+        self.component_config = config
+
+    def remove_component_status(self) -> None:
+        """Remueve el estado de componente de este item (lo convierte en item normal)"""
+        self.is_component = False
+        self.name_component = None
+        self.component_config = {}
+
     def __repr__(self) -> str:
         list_info = f", list={self.list_group}[{self.orden_lista}]" if self.is_list_item() else ""
-        return f"Item(id={self.id}, label={self.label}, type={self.type.value}{list_info})"
+        component_info = f", component={self.name_component}" if self.is_component_item() else ""
+        return f"Item(id={self.id}, label={self.label}, type={self.type.value}{list_info}{component_info})"
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Item):

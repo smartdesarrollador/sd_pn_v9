@@ -35,7 +35,7 @@ class ProcessBuilderWindow(QWidget):
     window_closed = pyqtSignal()
 
     def __init__(self, config_manager=None, process_controller=None,
-                 process_id=None, list_controller=None, parent=None):
+                 process_id=None, list_controller=None, component_manager=None, parent=None):
         """
         Initialize ProcessBuilderWindow
 
@@ -44,6 +44,7 @@ class ProcessBuilderWindow(QWidget):
             process_controller: ProcessController instance
             process_id: ID of process to edit (None for new process)
             list_controller: ListController instance (optional)
+            component_manager: ComponentManager instance (optional)
             parent: Parent widget
         """
         super().__init__(parent)
@@ -52,6 +53,7 @@ class ProcessBuilderWindow(QWidget):
         self.process_id = process_id
         self.editing_mode = process_id is not None
         self.list_controller = list_controller
+        self.component_manager = component_manager
 
         # Current process being built/edited
         self.current_process = None
@@ -63,6 +65,9 @@ class ProcessBuilderWindow(QWidget):
         # Available lists (grouped items)
         self.available_lists = []
         self.filtered_lists = []
+
+        # Available components
+        self.available_components = []
 
         # Step widgets in constructor
         self.step_widgets = []
@@ -341,6 +346,52 @@ class ProcessBuilderWindow(QWidget):
         scroll.setWidget(self.items_container)
         layout.addWidget(scroll)
 
+        # === Components section ===
+        if self.component_manager:
+            # Separator
+            separator = QFrame()
+            separator.setFrameShape(QFrame.Shape.HLine)
+            separator.setStyleSheet("background-color: #3d3d3d; max-height: 2px;")
+            layout.addWidget(separator)
+
+            # Components title with manage button
+            components_title_layout = QHBoxLayout()
+            components_title = QLabel("Componentes Visuales")
+            components_title.setStyleSheet("font-size: 11pt; font-weight: bold; color: #ff6b6b;")
+            components_title_layout.addWidget(components_title)
+            components_title_layout.addStretch()
+
+            manage_components_btn = QPushButton("⚙️")
+            manage_components_btn.setFixedSize(24, 24)
+            manage_components_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            manage_components_btn.setToolTip("Gestionar Componentes")
+            manage_components_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #3d3d3d;
+                    color: #ffffff;
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    font-size: 10pt;
+                }
+                QPushButton:hover {
+                    background-color: #007acc;
+                    border-color: #007acc;
+                }
+            """)
+            manage_components_btn.clicked.connect(self.on_manage_components)
+            components_title_layout.addWidget(manage_components_btn)
+
+            layout.addLayout(components_title_layout)
+
+            # Components container
+            self.components_container = QWidget()
+            self.components_layout = QHBoxLayout(self.components_container)
+            self.components_layout.setContentsMargins(0, 5, 0, 5)
+            self.components_layout.setSpacing(5)
+            self.components_layout.addStretch()
+
+            layout.addWidget(self.components_container)
+
         return panel
 
     def create_constructor_panel(self) -> QWidget:
@@ -555,6 +606,10 @@ class ProcessBuilderWindow(QWidget):
 
         # Load all items
         self.load_all_items()
+
+        # Load available components
+        if self.component_manager:
+            self.load_available_components()
 
         # Load saved processes list
         self.load_saved_processes()
@@ -953,6 +1008,9 @@ class ProcessBuilderWindow(QWidget):
             item_type=item.type,
             item_icon=item.icon,
             item_is_sensitive=item.is_sensitive,
+            is_component=getattr(item, 'is_component', False),
+            name_component=getattr(item, 'name_component', None),
+            component_config=getattr(item, 'component_config', {}),
             is_enabled=True
         )
 
@@ -1243,4 +1301,136 @@ class ProcessBuilderWindow(QWidget):
 
         self.window_closed.emit()
         event.accept()
+
+    # ==================== Component Methods ====================
+
+    def load_available_components(self):
+        """Load available component types and create buttons"""
+        if not self.component_manager:
+            return
+
+        try:
+            # Clear existing component buttons
+            while self.components_layout.count() > 1:  # Keep the stretch
+                item = self.components_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+
+            # Get all active component types
+            component_types = self.component_manager.get_all_component_types(active_only=True)
+            self.available_components = component_types
+
+            # Create button for each component type
+            for comp_type in component_types:
+                button = self.create_component_button(comp_type)
+                self.components_layout.insertWidget(self.components_layout.count() - 1, button)
+
+            logger.info(f"Loaded {len(component_types)} component types")
+
+        except Exception as e:
+            logger.error(f"Error loading components: {e}")
+
+    def create_component_button(self, component_type):
+        """Create a button for a component type"""
+        icon = self.component_manager.get_component_icon(component_type.name)
+
+        button = QPushButton(f"{icon}\n{component_type.name}")
+        button.setFixedSize(80, 60)
+        button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        button.setToolTip(f"{component_type.description}\n\nClick para insertar")
+        button.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                font-size: 8pt;
+                font-weight: bold;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #ff6b6b;
+                border-color: #ff6b6b;
+                color: #ffffff;
+            }
+            QPushButton:pressed {
+                background-color: #e4475b;
+                border-color: #e4475b;
+            }
+        """)
+
+        # Connect to insertion handler
+        button.clicked.connect(lambda: self.on_component_button_clicked(component_type))
+
+        return button
+
+    def on_component_button_clicked(self, component_type):
+        """Handle component button click - insert component into process"""
+        try:
+            # Create component item using ComponentManager
+            component_item = self.component_manager.create_component_item(
+                component_name=component_type.name,
+                label=f"{component_type.description}",
+                content=""  # Components don't need content
+            )
+
+            if not component_item:
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"No se pudo crear el componente '{component_type.name}'"
+                )
+                return
+
+            # Save component item to database first (needed for process_steps foreign key)
+            component_item_id = self.config_manager.db.add_item(
+                category_id=self.component_manager.get_components_category_id(),
+                label=component_item.label,
+                content=component_item.content,
+                item_type=component_item.type.value.upper(),
+                is_component=True,
+                name_component=component_item.name_component,
+                component_config=component_item.component_config
+            )
+
+            # Update the item ID
+            component_item.id = component_item_id
+
+            # Add component to process
+            self.on_item_double_clicked(component_item)
+
+            logger.info(f"Added component '{component_type.name}' to process (item_id: {component_item_id})")
+
+        except Exception as e:
+            logger.error(f"Error adding component: {e}")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al agregar componente:\n{e}"
+            )
+
+    def on_manage_components(self):
+        """Open component manager dialog"""
+        try:
+            from views.dialogs.component_manager_dialog import ComponentManagerDialog
+
+            dialog = ComponentManagerDialog(
+                component_manager=self.component_manager,
+                parent=self
+            )
+            dialog.component_types_changed.connect(self.on_components_changed)
+            dialog.exec()
+
+        except Exception as e:
+            logger.error(f"Error opening component manager: {e}")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al abrir gestor de componentes:\n{e}"
+            )
+
+    def on_components_changed(self):
+        """Handle changes in component types"""
+        # Reload component buttons
+        self.load_available_components()
 
