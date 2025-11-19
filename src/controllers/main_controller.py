@@ -239,6 +239,10 @@ class MainController:
             logger.debug("Actualizando sidebar en MainWindow")
             self.main_window.load_categories(self.categories)
 
+            # Recargar procesos activos en el sidebar
+            logger.debug("Recargando procesos activos en el sidebar")
+            self.main_window.load_processes_to_sidebar()
+
             # Si hay un FloatingPanel abierto, actualizarlo también
             if hasattr(self.main_window, 'floating_panel') and self.main_window.floating_panel:
                 logger.debug("Actualizando FloatingPanel")
