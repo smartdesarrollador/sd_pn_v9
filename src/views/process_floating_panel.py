@@ -288,7 +288,7 @@ class ProcessFloatingPanel(QWidget):
         layout.addWidget(edit_button)
 
         # Pin button
-        self.pin_button = QPushButton("📍")
+        self.pin_button = QPushButton("📌")
         self.pin_button.setFixedSize(30, 30)
         self.pin_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.pin_button.setToolTip("Anclar panel")
@@ -645,7 +645,7 @@ class ProcessFloatingPanel(QWidget):
 
         # Update button icon and tooltip
         if self.is_pinned:
-            self.pin_button.setText("📌")
+            self.pin_button.setText("📍")
             self.pin_button.setToolTip("Desanclar panel")
             # Update header color
             self.header_widget.setStyleSheet("""
@@ -658,7 +658,7 @@ class ProcessFloatingPanel(QWidget):
             # Show minimize button
             self.minimize_button.setVisible(True)
         else:
-            self.pin_button.setText("📍")
+            self.pin_button.setText("📌")
             self.pin_button.setToolTip("Anclar panel")
             # Restore header color
             self.header_widget.setStyleSheet("""
@@ -707,9 +707,14 @@ class ProcessFloatingPanel(QWidget):
             # Restore size
             self.content_widget.show()
             self.action_bar.show()
-            # Remove fixed height constraint
-            self.setMinimumHeight(400)
+            # Remove ALL height constraints first
+            self.setMinimumHeight(0)  # Remove minimum temporarily
             self.setMaximumHeight(16777215)  # Qt's QWIDGETSIZE_MAX
+            self.setFixedHeight(16777215)  # Remove fixed height
+            # Set proper minimum height
+            self.setMinimumHeight(400)
+            self.setMaximumHeight(16777215)
+            # Restore to original size
             if self.normal_height:
                 self.resize(self.normal_width, self.normal_height)
             self.minimize_button.setText("−")
