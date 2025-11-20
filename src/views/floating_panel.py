@@ -538,6 +538,8 @@ class FloatingPanel(QWidget):
     def display_items_and_lists(self, items, lists):
         """Display items and lists in separate sections
 
+        Limits display to maximum 100 items and 100 lists for performance
+
         Args:
             items: List of Item objects (solo items normales, no items de listas)
             lists: List of list metadata dicts from ListController.get_lists()
@@ -553,10 +555,22 @@ class FloatingPanel(QWidget):
         # Clear existing content
         self.clear_items()
 
+        # Límite de visualización
+        MAX_DISPLAY_ITEMS = 100
+        MAX_DISPLAY_LISTS = 100
+
         # === SECCIÓN DE ITEMS ===
         if items:
-            # Section header
-            items_header = QLabel(f"━━━ Items ({len(items)}) ━━━")
+            total_items = len(items)
+            items_to_display = items[:MAX_DISPLAY_ITEMS]  # Limitar a 100
+
+            # Section header con conteo
+            if total_items > MAX_DISPLAY_ITEMS:
+                items_header_text = f"━━━ Items ({MAX_DISPLAY_ITEMS} de {total_items}) ━━━"
+            else:
+                items_header_text = f"━━━ Items ({total_items}) ━━━"
+
+            items_header = QLabel(items_header_text)
             items_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
             items_header.setStyleSheet("""
                 QLabel {
@@ -569,9 +583,9 @@ class FloatingPanel(QWidget):
             """)
             self.items_layout.insertWidget(self.items_layout.count() - 1, items_header)
 
-            # Add items
-            for idx, item in enumerate(items):
-                logger.debug(f"Creating item button {idx+1}/{len(items)}: {item.label}")
+            # Add items (solo los primeros 100)
+            for idx, item in enumerate(items_to_display):
+                logger.debug(f"Creating item button {idx+1}/{len(items_to_display)}: {item.label}")
                 item_button = ItemButton(item)
                 item_button.item_clicked.connect(self.on_item_clicked)
                 item_button.url_open_requested.connect(self.on_url_open_requested)
@@ -580,6 +594,9 @@ class FloatingPanel(QWidget):
 
         # === SECCIÓN DE LISTAS ===
         if lists:
+            total_lists = len(lists)
+            lists_to_display = lists[:MAX_DISPLAY_LISTS]  # Limitar a 100
+
             # Spacer entre secciones
             if items:
                 spacer_label = QLabel("")
@@ -587,8 +604,13 @@ class FloatingPanel(QWidget):
                 spacer_label.setStyleSheet("background-color: transparent;")
                 self.items_layout.insertWidget(self.items_layout.count() - 1, spacer_label)
 
-            # Section header
-            lists_header = QLabel(f"━━━ Listas ({len(lists)}) ━━━")
+            # Section header con conteo
+            if total_lists > MAX_DISPLAY_LISTS:
+                lists_header_text = f"━━━ Listas ({MAX_DISPLAY_LISTS} de {total_lists}) ━━━"
+            else:
+                lists_header_text = f"━━━ Listas ({total_lists}) ━━━"
+
+            lists_header = QLabel(lists_header_text)
             lists_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lists_header.setStyleSheet("""
                 QLabel {
@@ -601,9 +623,9 @@ class FloatingPanel(QWidget):
             """)
             self.items_layout.insertWidget(self.items_layout.count() - 1, lists_header)
 
-            # Add lists
-            for idx, list_data in enumerate(lists):
-                logger.debug(f"Creating list widget {idx+1}/{len(lists)}: {list_data.get('list_group')}")
+            # Add lists (solo las primeras 100)
+            for idx, list_data in enumerate(lists_to_display):
+                logger.debug(f"Creating list widget {idx+1}/{len(lists_to_display)}: {list_data.get('list_group')}")
 
                 # Obtener items de la lista
                 list_items = []
@@ -629,7 +651,7 @@ class FloatingPanel(QWidget):
 
                 self.items_layout.insertWidget(self.items_layout.count() - 1, list_widget)
 
-        logger.info(f"Successfully displayed {len(items)} items and {len(lists)} lists")
+        logger.info(f"Successfully displayed {len(items_to_display) if items else 0}/{len(items)} items and {len(lists_to_display) if lists else 0}/{len(lists)} lists")
 
     def clear_items(self):
         """Clear all item buttons"""
