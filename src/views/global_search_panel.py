@@ -1212,17 +1212,20 @@ class GlobalSearchPanel(QWidget):
             self.search_bar.setVisible(False)
             self.scroll_area.setVisible(False)
 
+            # Hide display options widget if it exists
+            if hasattr(self, 'display_options_widget'):
+                self.display_options_widget.setVisible(False)
+
             # Reduce header margins for compact look
             self.header_layout.setContentsMargins(8, 3, 5, 3)
 
-            # CRITICAL: Remove size constraints temporarily to allow small size
-            self.setMinimumWidth(0)
-            self.setMinimumHeight(0)
-
-            # Resize to compact size (height: 32px, width: ~180px)
-            minimized_height = 32
-            minimized_width = 180
+            # Resize to compact size with better button visibility (height: 50px, width: 250px)
+            minimized_height = 50  # Increased from 32px for better button visibility
+            minimized_width = 250  # Increased from 180px to show all buttons
             self.resize(minimized_width, minimized_height)
+
+            # Set fixed size to prevent unwanted resizing
+            self.setFixedSize(minimized_width, minimized_height)
 
             # Move to bottom of screen (al ras de la barra de tareas)
             from PyQt6.QtWidgets import QApplication
@@ -1245,12 +1248,21 @@ class GlobalSearchPanel(QWidget):
             self.search_bar.setVisible(True)
             self.scroll_area.setVisible(True)
 
+            # Restore display options widget if it exists
+            if hasattr(self, 'display_options_widget'):
+                self.display_options_widget.setVisible(True)
+
             # Restore header margins
             self.header_layout.setContentsMargins(15, 10, 10, 10)
 
-            # CRITICAL: Restore size constraints
+            # CRITICAL: Remove fixed size constraint first (set to maximum QWidget size)
+            self.setFixedSize(16777215, 16777215)  # Maximum allowed size for QWidget
+
+            # CRITICAL: Restore proper size constraints for normal resizing
             self.setMinimumWidth(300)
             self.setMinimumHeight(400)
+            self.setMaximumWidth(16777215)  # No maximum width limit
+            self.setMaximumHeight(16777215)  # No maximum height limit
 
             # Restore original size
             if self.normal_height and self.normal_width:

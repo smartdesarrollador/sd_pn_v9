@@ -194,7 +194,7 @@ class DBManager:
                 -- Tabla de paneles anclados (COMPLETA con campos de global search)
                 CREATE TABLE IF NOT EXISTS pinned_panels (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    category_id INTEGER NOT NULL,
+                    category_id INTEGER,
                     custom_name TEXT,
                     custom_color TEXT,
                     x_position INTEGER NOT NULL,

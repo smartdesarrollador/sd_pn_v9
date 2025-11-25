@@ -794,20 +794,45 @@ class ProcessesFloatingPanel(QWidget):
             self.normal_width = self.width()
             self.normal_position = self.pos()
 
-            # Minimize to header only
+            # Hide content widgets
             self.scroll_area.hide()
             self.search_bar.parent().hide()
             self.filters_button.parent().hide()
-            self.resize(self.width(), 50)
+
+            # Hide display options widget if it exists
+            if hasattr(self, 'display_options_widget'):
+                self.display_options_widget.setVisible(False)
+
+            # Resize to compact size with better button visibility (height: 50px, width: 250px)
+            minimized_height = 50  # Good height for button visibility
+            minimized_width = 250  # Width to show all buttons
+            self.resize(minimized_width, minimized_height)
+
+            # Set fixed size to prevent unwanted resizing
+            self.setFixedSize(minimized_width, minimized_height)
 
             self.minimize_button.setText("🔼")
             self.minimize_button.setToolTip("Restaurar panel")
         else:
-            # Restore
+            # Restore content widgets
             self.scroll_area.show()
             self.search_bar.parent().show()
             self.filters_button.parent().show()
 
+            # Restore display options widget if it exists
+            if hasattr(self, 'display_options_widget'):
+                self.display_options_widget.setVisible(True)
+
+            # CRITICAL: Remove fixed size constraint first (set to maximum QWidget size)
+            self.setFixedSize(16777215, 16777215)  # Maximum allowed size for QWidget
+
+            # CRITICAL: Restore proper size constraints for normal resizing
+            self.setMinimumWidth(300)
+            self.setMinimumHeight(400)
+            self.setMaximumWidth(16777215)  # No maximum width limit
+            self.setMaximumHeight(16777215)  # No maximum height limit
+
+            # Restore original size
             if self.normal_height:
                 self.resize(self.normal_width, self.normal_height)
             if self.normal_position:
