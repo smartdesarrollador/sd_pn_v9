@@ -2,7 +2,7 @@
 Process Floating Panel - Displays all items and lists from a process
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                              QScrollArea, QPushButton, QMessageBox)
+                              QScrollArea, QPushButton, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QEvent, QTimer
 from PyQt6.QtGui import QFont, QCursor
 import sys
@@ -135,6 +135,146 @@ class ProcessFloatingPanel(QWidget):
         # Action bar (below header)
         self.action_bar = self.create_action_bar()
         main_layout.addWidget(self.action_bar)
+
+        # Display options row with checkboxes
+        self.display_options_widget = QWidget()
+        self.display_options_widget.setStyleSheet(f"""
+            QWidget {{
+                background-color: {self.theme.get_color('background_mid')};
+                border-bottom: 1px solid {self.theme.get_color('surface')};
+            }}
+        """)
+        display_options_layout = QHBoxLayout(self.display_options_widget)
+        display_options_layout.setContentsMargins(15, 5, 15, 5)
+        display_options_layout.setSpacing(15)
+
+        # Label for the section
+        display_label = QLabel("Mostrar:")
+        display_label.setStyleSheet(f"""
+            QLabel {{
+                color: {self.theme.get_color('text_secondary')};
+                font-size: 9pt;
+                font-weight: bold;
+            }}
+        """)
+        display_options_layout.addWidget(display_label)
+
+        # Checkbox: Mostrar Labels (checked by default)
+        self.show_labels_checkbox = QCheckBox("Labels")
+        self.show_labels_checkbox.setChecked(True)  # Default: ON
+        self.show_labels_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_labels_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {self.theme.get_color('text_primary')};
+                font-size: 9pt;
+                spacing: 5px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 2px solid {self.theme.get_color('primary')};
+                border-radius: 3px;
+                background-color: {self.theme.get_color('background_deep')};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {self.theme.get_color('primary')};
+                border-color: {self.theme.get_color('primary')};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {self.theme.get_color('accent')};
+            }}
+        """)
+        self.show_labels_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_labels_checkbox)
+
+        # Checkbox: Mostrar Tags
+        self.show_tags_checkbox = QCheckBox("Tags")
+        self.show_tags_checkbox.setChecked(False)  # Default: OFF
+        self.show_tags_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_tags_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {self.theme.get_color('text_primary')};
+                font-size: 9pt;
+                spacing: 5px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 2px solid {self.theme.get_color('primary')};
+                border-radius: 3px;
+                background-color: {self.theme.get_color('background_deep')};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {self.theme.get_color('primary')};
+                border-color: {self.theme.get_color('primary')};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {self.theme.get_color('accent')};
+            }}
+        """)
+        self.show_tags_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_tags_checkbox)
+
+        # Checkbox: Mostrar Contenido
+        self.show_content_checkbox = QCheckBox("Contenido")
+        self.show_content_checkbox.setChecked(False)  # Default: OFF
+        self.show_content_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_content_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {self.theme.get_color('text_primary')};
+                font-size: 9pt;
+                spacing: 5px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 2px solid {self.theme.get_color('primary')};
+                border-radius: 3px;
+                background-color: {self.theme.get_color('background_deep')};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {self.theme.get_color('primary')};
+                border-color: {self.theme.get_color('primary')};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {self.theme.get_color('accent')};
+            }}
+        """)
+        self.show_content_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_content_checkbox)
+
+        # Checkbox: Mostrar Descripción
+        self.show_description_checkbox = QCheckBox("Descripción")
+        self.show_description_checkbox.setChecked(False)  # Default: OFF
+        self.show_description_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_description_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {self.theme.get_color('text_primary')};
+                font-size: 9pt;
+                spacing: 5px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 2px solid {self.theme.get_color('primary')};
+                border-radius: 3px;
+                background-color: {self.theme.get_color('background_deep')};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {self.theme.get_color('primary')};
+                border-color: {self.theme.get_color('primary')};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {self.theme.get_color('accent')};
+            }}
+        """)
+        self.show_description_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_description_checkbox)
+
+        # Add stretch to push checkboxes to the left
+        display_options_layout.addStretch()
+
+        main_layout.addWidget(self.display_options_widget)
 
         # Content area (scrollable) with new optimized spacing
         self.content_widget = QWidget()
@@ -388,7 +528,22 @@ class ProcessFloatingPanel(QWidget):
                     # Convert dict to Item object and display as regular item
                     item = Item.from_dict(item_dict)
                     self.all_items.append(item)
-                    item_widget = ItemButton(item, self)
+
+                    # Get display options from checkboxes
+                    show_labels = self.show_labels_checkbox.isChecked()
+                    show_tags = self.show_tags_checkbox.isChecked()
+                    show_content = self.show_content_checkbox.isChecked()
+                    show_description = self.show_description_checkbox.isChecked()
+
+                    item_widget = ItemButton(
+                        item,
+                        show_category=False,
+                        show_labels=show_labels,
+                        show_tags=show_tags,
+                        show_content=show_content,
+                        show_description=show_description,
+                        parent=self
+                    )
                     item_widget.item_clicked.connect(lambda i=item: self.on_item_clicked(i))
                     item_row_layout.addWidget(item_widget, stretch=1)
 
@@ -732,6 +887,21 @@ class ProcessFloatingPanel(QWidget):
         """Handle search query change"""
         self.search_query = query.lower().strip()
         logger.info(f"Search query changed: '{self.search_query}'")
+        self.apply_search_filter()
+
+    def on_display_options_changed(self):
+        """Handle changes in display options checkboxes - refresh item widgets"""
+        logger.info("Display options changed - refreshing items")
+
+        # Get current display state
+        show_labels = self.show_labels_checkbox.isChecked()
+        show_tags = self.show_tags_checkbox.isChecked()
+        show_content = self.show_content_checkbox.isChecked()
+        show_description = self.show_description_checkbox.isChecked()
+
+        logger.debug(f"Display options: labels={show_labels}, tags={show_tags}, content={show_content}, description={show_description}")
+
+        # Re-render all items with new display options
         self.apply_search_filter()
 
     def apply_search_filter(self):

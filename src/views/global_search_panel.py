@@ -1,7 +1,7 @@
 """
 Global Search Panel Window - Independent window for searching all items across all categories
 """
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QPushButton, QSizePolicy, QComboBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QPushButton, QSizePolicy, QComboBox, QCheckBox
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QEvent, QTimer
 from PyQt6.QtGui import QFont, QCursor
 import sys
@@ -371,6 +371,146 @@ class GlobalSearchPanel(QWidget):
         self.search_bar.search_changed.connect(self.on_search_changed)
         main_layout.addWidget(self.search_bar)
 
+        # Display options row with checkboxes
+        self.display_options_widget = QWidget()
+        self.display_options_widget.setStyleSheet("""
+            QWidget {
+                background-color: #2d2d2d;
+                border-bottom: 1px solid #3d3d3d;
+            }
+        """)
+        display_options_layout = QHBoxLayout(self.display_options_widget)
+        display_options_layout.setContentsMargins(15, 5, 15, 5)
+        display_options_layout.setSpacing(15)
+
+        # Label for the section
+        display_label = QLabel("Mostrar:")
+        display_label.setStyleSheet("""
+            QLabel {
+                color: #888888;
+                font-size: 9pt;
+                font-weight: bold;
+            }
+        """)
+        display_options_layout.addWidget(display_label)
+
+        # Checkbox: Mostrar Labels (checked by default)
+        self.show_labels_checkbox = QCheckBox("Labels")
+        self.show_labels_checkbox.setChecked(True)  # Default: ON
+        self.show_labels_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_labels_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #ffffff;
+                font-size: 9pt;
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #f093fb;
+                border-radius: 3px;
+                background-color: #252525;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #f093fb;
+                border-color: #f093fb;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #ff6ec7;
+            }
+        """)
+        self.show_labels_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_labels_checkbox)
+
+        # Checkbox: Mostrar Tags
+        self.show_tags_checkbox = QCheckBox("Tags")
+        self.show_tags_checkbox.setChecked(False)  # Default: OFF
+        self.show_tags_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_tags_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #ffffff;
+                font-size: 9pt;
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #f093fb;
+                border-radius: 3px;
+                background-color: #252525;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #f093fb;
+                border-color: #f093fb;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #ff6ec7;
+            }
+        """)
+        self.show_tags_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_tags_checkbox)
+
+        # Checkbox: Mostrar Contenido
+        self.show_content_checkbox = QCheckBox("Contenido")
+        self.show_content_checkbox.setChecked(False)  # Default: OFF
+        self.show_content_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_content_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #ffffff;
+                font-size: 9pt;
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #f093fb;
+                border-radius: 3px;
+                background-color: #252525;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #f093fb;
+                border-color: #f093fb;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #ff6ec7;
+            }
+        """)
+        self.show_content_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_content_checkbox)
+
+        # Checkbox: Mostrar Descripción
+        self.show_description_checkbox = QCheckBox("Descripción")
+        self.show_description_checkbox.setChecked(False)  # Default: OFF
+        self.show_description_checkbox.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_description_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #ffffff;
+                font-size: 9pt;
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #f093fb;
+                border-radius: 3px;
+                background-color: #252525;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #f093fb;
+                border-color: #f093fb;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #ff6ec7;
+            }
+        """)
+        self.show_description_checkbox.stateChanged.connect(self.on_display_options_changed)
+        display_options_layout.addWidget(self.show_description_checkbox)
+
+        # Add stretch to push checkboxes to the left
+        display_options_layout.addStretch()
+
+        main_layout.addWidget(self.display_options_widget)
+
         # Scroll area for items
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -521,7 +661,21 @@ class GlobalSearchPanel(QWidget):
         # Add items
         for idx, item in enumerate(items):
             logger.debug(f"Creating button {idx+1}/{len(items)}: {item.label}")
-            item_button = ItemButton(item, show_category=True)  # show_category=True for global search
+
+            # Get display options from checkboxes
+            show_labels = self.show_labels_checkbox.isChecked()
+            show_tags = self.show_tags_checkbox.isChecked()
+            show_content = self.show_content_checkbox.isChecked()
+            show_description = self.show_description_checkbox.isChecked()
+
+            item_button = ItemButton(
+                item,
+                show_category=True,  # show_category=True for global search
+                show_labels=show_labels,
+                show_tags=show_tags,
+                show_content=show_content,
+                show_description=show_description
+            )
             item_button.item_clicked.connect(self.on_item_clicked)
             item_button.url_open_requested.connect(self.on_url_open_requested)
             self.items_layout.insertWidget(self.items_layout.count() - 1, item_button)
@@ -594,6 +748,22 @@ class GlobalSearchPanel(QWidget):
         # Trigger auto-save after 1 second
         if self.is_pinned:
             self.update_timer.start(self.update_delay_ms)
+
+    def on_display_options_changed(self):
+        """Handle changes in display options checkboxes - refresh item widgets"""
+        logger.info("Display options changed - refreshing items")
+
+        # Get current display state
+        show_labels = self.show_labels_checkbox.isChecked()
+        show_tags = self.show_tags_checkbox.isChecked()
+        show_content = self.show_content_checkbox.isChecked()
+        show_description = self.show_description_checkbox.isChecked()
+
+        logger.debug(f"Display options: labels={show_labels}, tags={show_tags}, content={show_content}, description={show_description}")
+
+        # Re-render all items with new display options
+        # Trigger a new search with the current query
+        self._perform_search()
 
     def _perform_search(self):
         """Perform the actual search after debounce"""
