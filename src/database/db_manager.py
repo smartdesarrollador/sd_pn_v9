@@ -740,6 +740,82 @@ class DBManager:
         self.execute_update(query, (category_id,))
         logger.info(f"Category deleted: ID {category_id}")
 
+    def toggle_category_active(self, category_id: int) -> bool:
+        """
+        Toggle the active status of a category.
+
+        Args:
+            category_id: Category ID to toggle
+
+        Returns:
+            bool: New active state (True if now active, False if now inactive)
+        """
+        try:
+            # Get current state
+            category = self.get_category(category_id)
+            if not category:
+                logger.error(f"Category not found: ID {category_id}")
+                return False
+
+            current_state = bool(category.get('is_active', 1))
+            new_state = not current_state
+
+            # Update state
+            self.update_category(category_id, is_active=new_state)
+            logger.info(f"Category {category_id} active state toggled: {current_state} -> {new_state}")
+
+            return new_state
+        except Exception as e:
+            logger.error(f"Error toggling category active state: {e}")
+            return False
+
+    def set_category_active(self, category_id: int, is_active: bool) -> bool:
+        """
+        Set the active status of a category explicitly.
+
+        Args:
+            category_id: Category ID to update
+            is_active: New active status
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            category = self.get_category(category_id)
+            if not category:
+                logger.error(f"Category not found: ID {category_id}")
+                return False
+
+            self.update_category(category_id, is_active=is_active)
+            logger.info(f"Category {category_id} active state set to: {is_active}")
+            return True
+        except Exception as e:
+            logger.error(f"Error setting category active state: {e}")
+            return False
+
+    def get_active_categories(self) -> List[Dict]:
+        """
+        Get only active categories ordered by order_index.
+
+        Returns:
+            List[Dict]: List of active category dictionaries
+        """
+        return self.get_categories(include_inactive=False)
+
+    def get_inactive_categories(self) -> List[Dict]:
+        """
+        Get only inactive categories ordered by order_index.
+
+        Returns:
+            List[Dict]: List of inactive category dictionaries
+        """
+        query = """
+            SELECT * FROM categories
+            WHERE is_active = 0
+            ORDER BY order_index
+        """
+        return self.execute_query(query)
+
     def reorder_categories(self, category_ids: List[int]) -> None:
         """
         Reorder categories by providing ordered list of IDs

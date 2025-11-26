@@ -28,6 +28,7 @@ class QuickAccessPanel(QWidget):
     dashboard_clicked = pyqtSignal()
     browser_clicked = pyqtSignal()
     category_filter_clicked = pyqtSignal()
+    category_manager_clicked = pyqtSignal()  # NEW: Gestión de categorías
     table_creator_clicked = pyqtSignal()
     create_process_clicked = pyqtSignal()
     view_processes_clicked = pyqtSignal()
@@ -127,6 +128,7 @@ class QuickAccessPanel(QWidget):
             ("⭐", "Favoritos", self.on_favorites_clicked),
             ("📊", "Estadísticas", self.on_stats_clicked),
             ("🧩", "Componentes", self.on_component_manager_clicked),
+            ("📁", "Categorías", self.on_category_manager_clicked),  # NEW
             ("📂", "Filtros", self.on_category_filter_clicked),
             ("🗂️", "Dashboard", self.on_dashboard_clicked),
             ("📌", "Paneles Anclados", self.on_pinned_panels_clicked),
@@ -197,6 +199,11 @@ class QuickAccessPanel(QWidget):
     def on_category_filter_clicked(self):
         """Handle category filter button click"""
         self.category_filter_clicked.emit()
+        self.hide()
+
+    def on_category_manager_clicked(self):
+        """Handle category manager button click"""
+        self.category_manager_clicked.emit()
         self.hide()
 
     def on_dashboard_clicked(self):

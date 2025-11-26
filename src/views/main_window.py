@@ -218,6 +218,7 @@ class MainWindow(QMainWindow):
         self.sidebar.settings_clicked.connect(self.open_settings)
         self.sidebar.component_manager_clicked.connect(self.open_component_manager)
         self.sidebar.category_filter_clicked.connect(self.on_category_filter_clicked)
+        self.sidebar.category_manager_clicked.connect(self.on_category_manager_clicked)  # NEW
         self.sidebar.refresh_clicked.connect(self.on_refresh_clicked)
         self.sidebar.quick_create_clicked.connect(self.on_quick_create_clicked)
         self.sidebar.web_static_create_clicked.connect(self.on_web_static_create_clicked)
@@ -1049,6 +1050,67 @@ class MainWindow(QMainWindow):
                 "Error",
                 f"Error al mostrar filtros de categorías:\n{str(e)}"
             )
+
+    def on_category_manager_clicked(self):
+        """Handle category manager button click - show category manager window"""
+        try:
+            logger.info("Category manager button clicked")
+
+            # Toggle: Si ya está visible, ocultarlo
+            if hasattr(self, 'category_manager_window') and self.category_manager_window and self.category_manager_window.isVisible():
+                logger.info("Hiding category manager window")
+                self.category_manager_window.hide()
+                return
+
+            # Crear ventana si no existe
+            if not hasattr(self, 'category_manager_window') or not self.category_manager_window:
+                from views.dialogs.category_manager_window import CategoryManagerWindow
+                self.category_manager_window = CategoryManagerWindow(
+                    controller=self.controller,
+                    parent=None  # Sin parent para que sea ventana independiente
+                )
+                self.category_manager_window.categories_changed.connect(self.on_categories_changed_from_manager)
+                logger.debug("Category manager window created")
+
+            # Posicionar a la IZQUIERDA del sidebar
+            sidebar_rect = self.geometry()
+            manager_window_width = self.category_manager_window.width()
+            window_x = sidebar_rect.left() - manager_window_width - 10
+            window_y = sidebar_rect.top()
+            self.category_manager_window.move(window_x, window_y)
+
+            # Mostrar ventana
+            self.category_manager_window.show()
+            self.category_manager_window.activateWindow()
+
+            logger.info("Category manager window shown")
+
+        except Exception as e:
+            logger.error(f"Error in on_category_manager_clicked: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al mostrar gestor de categorías:\n{str(e)}"
+            )
+
+    def on_categories_changed_from_manager(self):
+        """Handle categories changed from category manager - reload sidebar"""
+        try:
+            logger.info("Categories changed from manager, reloading sidebar")
+
+            # Invalidar caché de filtros
+            if self.controller and hasattr(self.controller, 'invalidate_filter_cache'):
+                self.controller.invalidate_filter_cache()
+                logger.debug("Filter cache invalidated")
+
+            # Recargar categorías en el sidebar
+            if self.controller:
+                categories = self.controller.get_categories()
+                self.load_categories(categories)
+                logger.info(f"Sidebar reloaded with {len(categories)} categories")
+
+        except Exception as e:
+            logger.error(f"Error reloading categories: {e}", exc_info=True)
 
     def on_category_filters_changed(self, filters: dict):
         """Handle category filters changed"""

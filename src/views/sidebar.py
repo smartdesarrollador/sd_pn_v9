@@ -45,6 +45,9 @@ class Sidebar(QWidget):
     # Signal emitted when category filter button is clicked
     category_filter_clicked = pyqtSignal()
 
+    # Signal emitted when category manager button is clicked
+    category_manager_clicked = pyqtSignal()  # NEW
+
     # Signal emitted when global search button is clicked
     global_search_clicked = pyqtSignal()
 
@@ -767,6 +770,7 @@ class Sidebar(QWidget):
                 self.quick_access_panel.favorites_clicked.connect(lambda: self.favorites_clicked.emit())
                 self.quick_access_panel.dashboard_clicked.connect(lambda: self.dashboard_clicked.emit())
                 self.quick_access_panel.category_filter_clicked.connect(lambda: self.category_filter_clicked.emit())
+                self.quick_access_panel.category_manager_clicked.connect(lambda: self.category_manager_clicked.emit())  # NEW
                 self.quick_access_panel.table_creator_clicked.connect(lambda: self.table_creator_clicked.emit())
                 self.quick_access_panel.create_process_clicked.connect(lambda: self.create_process_clicked.emit())
                 self.quick_access_panel.view_processes_clicked.connect(lambda: self.view_processes_clicked.emit())
