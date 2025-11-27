@@ -63,6 +63,9 @@ class Sidebar(QWidget):
     # Signal emitted when browser button is clicked
     browser_clicked = pyqtSignal()
 
+    # Signal emitted when screenshot button is clicked
+    screenshot_clicked = pyqtSignal()
+
     # Signal emitted when AI Bulk button is clicked
     ai_bulk_clicked = pyqtSignal()
 
@@ -221,6 +224,37 @@ class Sidebar(QWidget):
         """)
         self.global_search_button.clicked.connect(self.on_global_search_clicked)
         main_layout.addWidget(self.global_search_button)
+
+        # Screenshot button
+        self.screenshot_button = QPushButton("📸")
+        self.screenshot_button.setFixedSize(70, 40)
+        self.screenshot_button.setToolTip("Captura de Pantalla (Ctrl+Alt+W)")
+        self.screenshot_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.screenshot_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.theme.get_color('background_deep')};
+                color: {self.theme.get_color('text_primary')};
+                border: none;
+                border-bottom: 2px solid {self.theme.get_color('background_deep')};
+                font-size: 14pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #ff6b6b,
+                    stop:1 #feca57
+                );
+                border-bottom: 2px solid #ff6b6b;
+                color: #000000;
+            }}
+            QPushButton:pressed {{
+                background-color: {self.theme.get_color('surface')};
+                transform: scale(0.95);
+            }}
+        """)
+        self.screenshot_button.clicked.connect(self.on_screenshot_clicked)
+        main_layout.addWidget(self.screenshot_button)
 
         # MOVED TO QUICK ACCESS PANEL: Advanced Search button
         # self.advanced_search_button = QPushButton("🔍⚡")
@@ -727,6 +761,10 @@ class Sidebar(QWidget):
     def on_global_search_clicked(self):
         """Handle global search button click"""
         self.global_search_clicked.emit()
+
+    def on_screenshot_clicked(self):
+        """Handle screenshot button click"""
+        self.screenshot_clicked.emit()
 
     def on_advanced_search_clicked(self):
         """Handle advanced search button click"""

@@ -48,6 +48,14 @@ class MainController:
             self.list_controller
         )
 
+        # Initialize screenshot controller
+        from controllers.screenshot_controller import ScreenshotController
+        self.screenshot_controller = ScreenshotController(self)
+
+        # Initialize hotkey manager
+        from core.hotkey_manager import HotkeyManager
+        self.hotkey_manager = HotkeyManager()
+
         # Data
         self.categories: List[Category] = []  # All categories (unfiltered, for compatibility)
         self._all_categories: List[Category] = []  # Master list: ALL categories from DB
@@ -58,6 +66,9 @@ class MainController:
 
         # Load initial data
         self.load_data()
+
+        # Setup hotkeys
+        self.setup_hotkeys()
 
     def load_data(self) -> None:
         """Load configuration and categories"""
@@ -72,6 +83,49 @@ class MainController:
         print(f"Loaded {len(self.categories)} categories")
         for cat in self.categories:
             print(f"  - {cat.name}: {len(cat.items)} items")
+
+    def setup_hotkeys(self) -> None:
+        """Setup and register global hotkeys"""
+        print("Setting up global hotkeys...")
+
+        # Register screenshot hotkey
+        screenshot_hotkey = self.config_manager.get_setting('screenshot_hotkey', 'ctrl+shift+s')
+        self.hotkey_manager.register_hotkey(screenshot_hotkey, self.on_screenshot_hotkey)
+        print(f"Screenshot hotkey registered: {screenshot_hotkey}")
+
+        # Start hotkey listener
+        self.hotkey_manager.start()
+        print("Hotkey manager started")
+
+    def reload_screenshot_hotkey(self) -> None:
+        """
+        Reload screenshot hotkey from settings without restarting app
+        Unregisters old hotkey and registers new one
+        """
+        print("Reloading screenshot hotkey...")
+
+        try:
+            # Get current hotkey from settings
+            new_hotkey = self.config_manager.get_setting('screenshot_hotkey', 'ctrl+shift+s')
+
+            # Unregister all existing hotkeys
+            self.hotkey_manager.unregister_all()
+
+            # Register new hotkey
+            self.hotkey_manager.register_hotkey(new_hotkey, self.on_screenshot_hotkey)
+            print(f"Screenshot hotkey reloaded: {new_hotkey}")
+
+        except Exception as e:
+            logger.error(f"Error reloading screenshot hotkey: {e}")
+            print(f"Error reloading screenshot hotkey: {e}")
+
+    def on_screenshot_hotkey(self) -> None:
+        """Callback when screenshot hotkey is pressed"""
+        print("Screenshot hotkey triggered!")
+        try:
+            self.screenshot_controller.start_screenshot()
+        except Exception as e:
+            print(f"Error starting screenshot: {e}")
 
     def get_categories(self, include_filtered: bool = True) -> List[Category]:
         """

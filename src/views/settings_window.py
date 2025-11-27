@@ -22,6 +22,7 @@ from views.general_settings import GeneralSettings
 from views.browser_settings import BrowserSettings
 from views.organization_settings import OrganizationSettings
 from views.files_settings import FilesSettings
+from views.screenshot_settings import ScreenshotSettings
 
 # Get logger
 logger = logging.getLogger(__name__)
@@ -133,6 +134,7 @@ class SettingsWindow(QDialog):
         self.browser_settings = BrowserSettings(controller=self.controller)
         self.organization_settings = OrganizationSettings(config_manager=self.config_manager)
         self.files_settings = FilesSettings(config_manager=self.config_manager)
+        self.screenshot_settings = ScreenshotSettings(config_manager=self.config_manager, controller=self.controller)
         self.general_settings = GeneralSettings(config_manager=self.config_manager)
 
         # Add tabs with scroll areas
@@ -142,6 +144,7 @@ class SettingsWindow(QDialog):
         self.tab_widget.addTab(self._create_scrollable_tab(self.browser_settings), "Navegador")
         self.tab_widget.addTab(self._create_scrollable_tab(self.organization_settings), "Organización")
         self.tab_widget.addTab(self._create_scrollable_tab(self.files_settings), "Archivos")
+        self.tab_widget.addTab(self._create_scrollable_tab(self.screenshot_settings), "Capturas")
         self.tab_widget.addTab(self._create_scrollable_tab(self.general_settings), "General")
 
         main_layout.addWidget(self.tab_widget)

@@ -206,6 +206,7 @@ class MainWindow(QMainWindow):
         self.sidebar.set_controller(self.controller)  # Set controller reference for notebook
         self.sidebar.category_clicked.connect(self.on_category_clicked)
         self.sidebar.global_search_clicked.connect(self.on_global_search_clicked)
+        self.sidebar.screenshot_clicked.connect(self.on_screenshot_clicked)
         self.sidebar.advanced_search_clicked.connect(self.on_advanced_search_clicked)
         self.sidebar.table_creator_clicked.connect(self.on_table_creator_clicked)
         self.sidebar.tables_manager_clicked.connect(self.on_tables_manager_clicked)
@@ -506,6 +507,24 @@ class MainWindow(QMainWindow):
         if panel in self.pinned_global_search_panels:
             self.pinned_global_search_panels.remove(panel)
         panel.deleteLater()
+
+    def on_screenshot_clicked(self):
+        """Handle screenshot button click - start screenshot capture"""
+        try:
+            logger.info("Screenshot button clicked")
+
+            if not self.controller:
+                logger.error("No controller available")
+                return
+
+            # Iniciar captura de pantalla
+            if hasattr(self.controller, 'screenshot_controller'):
+                self.controller.screenshot_controller.start_screenshot()
+            else:
+                logger.error("Screenshot controller not available")
+
+        except Exception as e:
+            logger.error(f"Error starting screenshot: {e}", exc_info=True)
 
     def on_advanced_search_clicked(self):
         """Handle advanced search button click - toggle advanced search window"""

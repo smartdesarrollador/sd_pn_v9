@@ -54,7 +54,8 @@
       "Bash(if not exist \"src\\views\\advanced_search\" mkdir \"src\\views\\advanced_search\")",
       "Bash(ping:*)",
       "Bash(utilschema_output.txt)",
-      "Bash(tasklist /FI \"IMAGENAME eq python.exe\")"
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\")",
+      "Bash(start python:*)"
     ],
     "deny": [],
     "ask": []
