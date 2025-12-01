@@ -68,11 +68,12 @@ class ProjectComponentWidget(QWidget):
         divider = QFrame()
         divider.setFrameShape(QFrame.Shape.HLine)
         divider.setFrameShadow(QFrame.Shadow.Sunken)
+        divider.setFixedHeight(3)  # Altura fija de 3px
         divider.setStyleSheet("""
             QFrame {
-                background-color: #3d3d3d;
-                max-height: 2px;
-                margin: 8px 0;
+                background-color: #555555;
+                border: none;
+                margin: 12px 0;
             }
         """)
         container_layout.addWidget(divider, 1)
