@@ -273,11 +273,11 @@ class ProjectCardWidget(QWidget):
         self.show_copied_indicator = True
         self.update()  # Forzar repaint
 
-        # Cambiar color del borde temporalmente
+        # Cambiar color del borde Y FONDO temporalmente
         border_color = self.TYPE_COLORS.get(self.item_type, '#555555')
         self.card_frame.setStyleSheet(f"""
             QFrame#cardFrame {{
-                background-color: #2d2d2d;
+                background-color: #1a3d2e;
                 border: 3px solid #00ff88;
                 border-radius: 8px;
                 padding: 12px;

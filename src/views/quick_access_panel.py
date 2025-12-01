@@ -56,7 +56,7 @@ class QuickAccessPanel(QWidget):
         )
 
         # Fixed size for panel (adjusted for vertical layout)
-        self.setFixedSize(220, 500)
+        self.setFixedSize(220, 620)
 
         # Window opacity
         self.setWindowOpacity(0.95)
@@ -76,7 +76,7 @@ class QuickAccessPanel(QWidget):
         # Main layout
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(5)
+        main_layout.setSpacing(8)
 
         # Header with title and close button
         header_layout = QHBoxLayout()
@@ -147,7 +147,7 @@ class QuickAccessPanel(QWidget):
         """Create a button with icon and text"""
         # Button with icon and text
         button = QPushButton(f"{icon}  {label}")
-        button.setFixedHeight(32)
+        button.setFixedHeight(36)
         button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         button.setStyleSheet("""
             QPushButton {
