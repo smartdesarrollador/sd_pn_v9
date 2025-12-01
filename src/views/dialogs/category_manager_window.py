@@ -675,6 +675,19 @@ class CategoryManagerWindow(QWidget):
                 logger.info("No categories to activate")
                 return
 
+            # Confirm action
+            count = len(category_ids)
+            reply = QMessageBox.question(
+                self,
+                "Confirmar activación",
+                f"¿Estás seguro de activar {'todas las' if count > 1 else 'la'} {count} {'categorías' if count > 1 else 'categoría'} filtrada{'s' if count > 1 else ''}?\n\nEsto hará que {'estas categorías' if count > 1 else 'esta categoría'} sea{'n' if count > 1 else ''} visible{'s' if count > 1 else ''} en el sidebar.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return
+
             # Update database for filtered categories only
             for cat_id in category_ids:
                 self.db.set_category_active(cat_id, True)
@@ -711,8 +724,8 @@ class CategoryManagerWindow(QWidget):
             count = len(category_ids)
             reply = QMessageBox.question(
                 self,
-                "Confirmar",
-                f"¿Desactivar las {count} categorías filtradas?\n\nEsto ocultará estas categorías del sidebar.",
+                "Confirmar desactivación",
+                f"¿Estás seguro de desactivar {'todas las' if count > 1 else 'la'} {count} {'categorías' if count > 1 else 'categoría'} filtrada{'s' if count > 1 else ''}?\n\nEsto ocultará {'estas categorías' if count > 1 else 'esta categoría'} del sidebar.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )

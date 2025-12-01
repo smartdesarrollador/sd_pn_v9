@@ -137,7 +137,7 @@ class Sidebar(QWidget):
                 padding: 10px;
                 font-size: 13pt;
                 font-weight: bold;
-                border-bottom: 3px solid {self.theme.get_color('accent')};
+                border-bottom: 3px solid #66d9ef;
                 letter-spacing: 3px;
             }}
         """)
