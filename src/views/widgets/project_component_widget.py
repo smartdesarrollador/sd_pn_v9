@@ -428,16 +428,16 @@ class ProjectComponentWidget(QWidget):
     def _create_simple_tag_chip(self, tag):
         """Crea un chip simple para mostrar un tag"""
         chip = QLabel(tag.name)
-        chip.setFixedHeight(16)
+        chip.setFixedHeight(22)  # Aumentado de 16 a 22
         chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
         chip.setStyleSheet(f"""
             QLabel {{
                 background-color: {tag.color};
                 color: #000000;
-                font-size: 7pt;
+                font-size: 9pt;  /* Aumentado de 7pt a 9pt */
                 font-weight: bold;
-                border-radius: 8px;
-                padding: 2px 6px;
+                border-radius: 11px;  /* Aumentado proporcionalmente */
+                padding: 3px 10px;  /* Aumentado de 2px 6px a 3px 10px */
                 border: 1px solid {tag.color};
             }}
         """)

@@ -96,15 +96,26 @@ class ProjectCardWidget(QWidget):
         # Color del borde según tipo
         border_color = self.TYPE_COLORS.get(self.item_type, '#555555')
 
+        # Detectar si es componente para usar color de fondo diferente
+        is_component = self.item_type in ['comment', 'alert', 'note', 'divider']
+
+        # Colores de fondo específicos para componentes
+        if is_component:
+            bg_color = '#1a2332'  # Azul oscuro para componentes
+            hover_color = '#223244'
+        else:
+            bg_color = '#2d2d2d'  # Gris oscuro para relaciones
+            hover_color = '#353535'
+
         self.card_frame.setStyleSheet(f"""
             QFrame#cardFrame {{
-                background-color: #2d2d2d;
+                background-color: {bg_color};
                 border: 2px solid {border_color};
                 border-radius: 8px;
                 padding: 12px;
             }}
             QFrame#cardFrame:hover {{
-                background-color: #353535;
+                background-color: {hover_color};
                 border-color: #ffffff;
             }}
         """)
@@ -141,18 +152,40 @@ class ProjectCardWidget(QWidget):
         """)
         header_layout.addWidget(name_label, 1)
 
-        # Badge de tipo
-        type_badge = QLabel(self.item_type.upper())
+        # Badge de tipo - Más grande y distintivo para componentes
+        is_component = self.item_type in ['comment', 'alert', 'note', 'divider']
+
+        if is_component:
+            # Badge especial para componentes - Más destacado
+            component_icons = {
+                'comment': '💬',
+                'alert': '⚠️',
+                'note': '📌',
+                'divider': '─'
+            }
+            icon = component_icons.get(self.item_type, '💬')
+            badge_text = f"{icon} {self.item_type.upper()}"
+            badge_width = 95
+            badge_height = 26
+            badge_font_size = "8pt"
+        else:
+            # Badge normal para relaciones
+            badge_text = self.item_type.upper()
+            badge_width = 48
+            badge_height = 20
+            badge_font_size = "7pt"
+
+        type_badge = QLabel(badge_text)
         type_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        type_badge.setFixedSize(48, 20)
+        type_badge.setFixedSize(badge_width, badge_height)
         type_badge.setStyleSheet(f"""
             QLabel {{
                 background-color: {border_color};
                 color: #000000;
-                font-size: 7pt;
+                font-size: {badge_font_size};
                 font-weight: bold;
-                border-radius: 3px;
-                padding: 2px 4px;
+                border-radius: 5px;
+                padding: 2px 6px;
             }}
         """)
         header_layout.addWidget(type_badge)
@@ -266,16 +299,16 @@ class ProjectCardWidget(QWidget):
     def _create_simple_tag_chip(self, tag):
         """Crea un chip simple para mostrar un tag"""
         chip = QLabel(tag.name)
-        chip.setFixedHeight(18)
+        chip.setFixedHeight(24)  # Aumentado de 18 a 24
         chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
         chip.setStyleSheet(f"""
             QLabel {{
                 background-color: {tag.color};
                 color: #000000;
-                font-size: 7pt;
+                font-size: 9pt;  /* Aumentado de 7pt a 9pt */
                 font-weight: bold;
-                border-radius: 9px;
-                padding: 2px 8px;
+                border-radius: 12px;  /* Aumentado proporcionalmente */
+                padding: 4px 12px;  /* Aumentado de 2px 8px a 4px 12px */
                 border: 1px solid {tag.color};
             }}
         """)
@@ -356,15 +389,26 @@ class ProjectCardWidget(QWidget):
 
         # Restaurar estilo original
         border_color = self.TYPE_COLORS.get(self.item_type, '#555555')
+
+        # Detectar si es componente para restaurar color correcto
+        is_component = self.item_type in ['comment', 'alert', 'note', 'divider']
+
+        if is_component:
+            bg_color = '#1a2332'  # Azul oscuro para componentes
+            hover_color = '#223244'
+        else:
+            bg_color = '#2d2d2d'  # Gris oscuro para relaciones
+            hover_color = '#353535'
+
         self.card_frame.setStyleSheet(f"""
             QFrame#cardFrame {{
-                background-color: #2d2d2d;
+                background-color: {bg_color};
                 border: 2px solid {border_color};
                 border-radius: 8px;
                 padding: 12px;
             }}
             QFrame#cardFrame:hover {{
-                background-color: #353535;
+                background-color: {hover_color};
                 border-color: #ffffff;
             }}
         """)

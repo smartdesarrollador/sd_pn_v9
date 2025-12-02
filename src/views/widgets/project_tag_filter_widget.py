@@ -252,12 +252,16 @@ class ProjectTagFilterWidget(QWidget):
 
     def _select_all(self):
         """Selecciona todos los tags"""
-        for checkbox in self.tag_checkboxes.values():
+        # Crear lista de checkboxes antes de iterar para evitar RuntimeError
+        checkboxes = list(self.tag_checkboxes.values())
+        for checkbox in checkboxes:
             checkbox.setChecked(True)
 
     def _select_none(self):
         """Deselecciona todos los tags"""
-        for checkbox in self.tag_checkboxes.values():
+        # Crear lista de checkboxes antes de iterar para evitar RuntimeError
+        checkboxes = list(self.tag_checkboxes.values())
+        for checkbox in checkboxes:
             checkbox.setChecked(False)
 
     def get_selected_tag_ids(self) -> List[int]:
