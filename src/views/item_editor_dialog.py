@@ -19,7 +19,8 @@ import os
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from models.item import Item, ItemType
-from views.widgets.tag_group_selector import TagGroupSelector
+from views.widgets.project_tag_selector import ProjectTagSelector
+from core.global_tag_manager import GlobalTagManager
 from core.file_manager import FileManager
 
 # Get logger
@@ -127,6 +128,11 @@ class ItemEditorDialog(QDialog):
         self.file_manager = None
         if self.controller and hasattr(self.controller, 'config_manager'):
             self.file_manager = FileManager(self.controller.config_manager)
+            self.db = self.controller.config_manager.db
+            self.global_tag_manager = GlobalTagManager(self.db)
+        else:
+            self.db = None
+            self.global_tag_manager = None
 
         # Selected file metadata (for PATH items)
         self.selected_file_path = None
@@ -260,55 +266,20 @@ class ItemEditorDialog(QDialog):
         self.content_input.setMinimumHeight(120)
         form_layout.addRow(content_label, self.content_input)
 
-        # Tags field (optional)
-        self.tags_input = QLineEdit()
-        self.tags_input.setPlaceholderText("tag1, tag2, tag3 (opcional)")
-        form_layout.addRow("Tags:", self.tags_input)
+        # Tags field (optional) - Using ProjectTagSelector
+        tags_label = QLabel("Tags:")
+        form_layout.addRow(tags_label)
 
-        # Tag Group Selector (optional) - wrapped in scroll area
-        if self.controller and hasattr(self.controller, 'config_manager'):
-            try:
-                db_path = str(self.controller.config_manager.db.db_path)
-                self.tag_group_selector = TagGroupSelector(db_path, self)
-                self.tag_group_selector.tags_changed.connect(self.on_tag_group_changed)
-
-                # Create scroll area for tag group selector
-                tag_scroll_area = QScrollArea()
-                tag_scroll_area.setWidget(self.tag_group_selector)
-                tag_scroll_area.setWidgetResizable(True)
-                tag_scroll_area.setFixedHeight(120)  # Fixed height with scroll
-                tag_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-                tag_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-                tag_scroll_area.setStyleSheet("""
-                    QScrollArea {
-                        border: 1px solid #3d3d3d;
-                        border-radius: 4px;
-                        background-color: #2d2d2d;
-                    }
-                    QScrollBar:vertical {
-                        background-color: #2d2d2d;
-                        width: 12px;
-                        border-radius: 6px;
-                    }
-                    QScrollBar::handle:vertical {
-                        background-color: #5a5a5a;
-                        border-radius: 6px;
-                        min-height: 20px;
-                    }
-                    QScrollBar::handle:vertical:hover {
-                        background-color: #007acc;
-                    }
-                    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                        height: 0px;
-                    }
-                """)
-
-                form_layout.addRow("", tag_scroll_area)
-            except Exception as e:
-                logger.warning(f"Could not initialize TagGroupSelector: {e}")
-                self.tag_group_selector = None
+        if self.global_tag_manager:
+            self.tag_selector = ProjectTagSelector(self.global_tag_manager)
+            self.tag_selector.setMinimumHeight(150)
+            form_layout.addRow(self.tag_selector)
         else:
-            self.tag_group_selector = None
+            # Fallback if no manager available
+            self.tags_input = QLineEdit()
+            self.tags_input.setPlaceholderText("tag1, tag2, tag3 (opcional)")
+            form_layout.addRow(self.tags_input)
+            self.tag_selector = None
 
         # Add vertical spacer after tag section
         spacer_label = QLabel("")
@@ -563,17 +534,7 @@ class ItemEditorDialog(QDialog):
         if hasattr(self, 'file_selector_group'):
             self.file_selector_group.setVisible(is_path)
 
-    def on_tag_group_changed(self, tags: list):
-        """Handle tag group selector changes"""
-        try:
-            # Actualizar el campo de tags con los tags seleccionados
-            if tags:
-                self.tags_input.setText(", ".join(tags))
-            else:
-                self.tags_input.setText("")
-            logger.debug(f"Tags updated from tag group selector: {tags}")
-        except Exception as e:
-            logger.error(f"Error updating tags from tag group selector: {e}")
+    # on_tag_group_changed removed as TagGroupSelector is replaced
 
     def on_select_file(self):
         """Handle file selection for PATH items"""
@@ -716,10 +677,27 @@ class ItemEditorDialog(QDialog):
 
         # Load tags
         if self.item.tags:
-            self.tags_input.setText(", ".join(self.item.tags))
-            # También cargar en el tag group selector si existe
-            if self.tag_group_selector:
-                self.tag_group_selector.set_tags(self.item.tags)
+            if self.tag_selector and self.global_tag_manager:
+                # Convert tag names to IDs
+                tag_ids = []
+                for tag_name in self.item.tags:
+                    tag = self.global_tag_manager.get_tag_by_name(tag_name)
+                    if tag:
+                        tag_ids.append(tag.id)
+                    else:
+                        # If tag exists in item but not found by name (weird), create it?
+                        # Or just ignore. Let's try to create/get it to be safe.
+                        try:
+                            # Use create_tag which uses get_or_create logic
+                            new_tag = self.global_tag_manager.create_tag(tag_name)
+                            if new_tag:
+                                tag_ids.append(new_tag.id)
+                        except Exception as e:
+                            logger.warning(f"Could not load tag '{tag_name}': {e}")
+                
+                self.tag_selector.set_selected_tags(tag_ids)
+            elif hasattr(self, 'tags_input'):
+                self.tags_input.setText(", ".join(self.item.tags))
 
         # Load description
         if hasattr(self.item, 'description') and self.item.description:
@@ -891,8 +869,17 @@ class ItemEditorDialog(QDialog):
             Dictionary with item data
         """
         # Get tags list
-        tags_text = self.tags_input.text().strip()
-        tags = [tag.strip() for tag in tags_text.split(",") if tag.strip()] if tags_text else []
+        tags = []
+        if self.tag_selector:
+            # Get selected IDs and convert back to names
+            selected_ids = self.tag_selector.get_selected_tags()
+            for tag_id in selected_ids:
+                tag = self.global_tag_manager.get_tag(tag_id)
+                if tag:
+                    tags.append(tag.name)
+        elif hasattr(self, 'tags_input'):
+            tags_text = self.tags_input.text().strip()
+            tags = [tag.strip() for tag in tags_text.split(",") if tag.strip()] if tags_text else []
 
         # Get description
         description = self.description_input.text().strip() or None
