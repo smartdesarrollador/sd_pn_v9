@@ -1417,6 +1417,9 @@ class ProjectsWindow(QMainWindow):
             # Animar el icono del botón
             if self._left_panel_collapsed:
                 self.left_toggle_btn.setText("☰")
+                # Al ocultar, ajustar ancho de ventana a móvil si el otro panel también está oculto
+                if not self._right_panel_visible:
+                    self._adjust_window_width_to_mobile()
             else:
                 self.left_toggle_btn.setText("✕")
 
@@ -1445,8 +1448,18 @@ class ProjectsWindow(QMainWindow):
                         padding: 5px;
                     }
                 """)
+                # Al ocultar, ajustar ancho de ventana a móvil si el otro panel también está oculto
+                if self._left_panel_collapsed:
+                    self._adjust_window_width_to_mobile()
 
             logger.info(f"Right panel toggled: {'visible' if self._right_panel_visible else 'hidden'}")
+
+    def _adjust_window_width_to_mobile(self):
+        """Ajusta el ancho de la ventana al ancho móvil (400px) cuando ambos paneles están ocultos"""
+        if self._is_compact_mode and self._left_panel_collapsed and not self._right_panel_visible:
+            current_height = self.height()
+            self.resize(400, current_height)
+            logger.info("Window width adjusted to mobile: 400px")
 
     def closeEvent(self, event):
         """Al cerrar la ventana - los paneles flotantes permanecen abiertos independientemente"""
