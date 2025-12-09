@@ -26,6 +26,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from database.db_manager import DBManager
 from core.table_validator import TableValidator
+from views.widgets.project_tag_selector import ProjectTagSelector
+from core.global_tag_manager import GlobalTagManager
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,13 @@ class TableConfigStep(QWidget):
         self.column_inputs = []
         self.column_sensitive_checks = []  # Checkboxes para marcar columnas sensibles
         self.column_url_checks = []  # Checkboxes para marcar columnas como tipo URL
+
+        # Initialize GlobalTagManager
+        self.global_tag_manager = None
+        try:
+            self.global_tag_manager = GlobalTagManager(self.db)
+        except Exception as e:
+            logger.error(f"Could not initialize GlobalTagManager: {e}")
 
         self.init_ui()
         self.load_categories()
@@ -158,22 +167,31 @@ class TableConfigStep(QWidget):
         """)
         basic_layout.addRow("Categoría:", self.category_combo)
 
-        # Tags (opcional)
-        self.tags_input = QLineEdit()
-        self.tags_input.setPlaceholderText("Ej: trabajo, contactos (separados por comas)")
-        self.tags_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #1e1e1e;
-                border: 1px solid #3d3d3d;
-                border-radius: 4px;
-                padding: 8px;
-                color: #cccccc;
-            }
-            QLineEdit:focus {
-                border: 1px solid #007acc;
-            }
-        """)
-        basic_layout.addRow("Tags (opcional):", self.tags_input)
+        # Tags con ProjectTagSelector
+        tags_label_widget = QLabel("Tags (opcional):")
+        basic_layout.addRow(tags_label_widget)
+
+        if self.global_tag_manager:
+            self.tag_selector = ProjectTagSelector(self.global_tag_manager)
+            self.tag_selector.setMinimumHeight(150)
+            basic_layout.addRow(self.tag_selector)
+        else:
+            # Fallback if no manager available
+            self.tag_selector = QLineEdit()
+            self.tag_selector.setPlaceholderText("tag1, tag2, tag3 (separados por comas)")
+            self.tag_selector.setStyleSheet("""
+                QLineEdit {
+                    background-color: #1e1e1e;
+                    border: 1px solid #3d3d3d;
+                    border-radius: 4px;
+                    padding: 8px;
+                    color: #cccccc;
+                }
+                QLineEdit:focus {
+                    border: 1px solid #007acc;
+                }
+            """)
+            basic_layout.addRow(self.tag_selector)
 
         basic_group.setLayout(basic_layout)
         layout.addWidget(basic_group)
@@ -407,8 +425,18 @@ class TableConfigStep(QWidget):
                 url_columns.append(i)  # Índice de columna URL
 
         # Procesar tags
-        tags_text = self.tags_input.text().strip()
-        tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()] if tags_text else []
+        tags = []
+        if self.tag_selector and hasattr(self.tag_selector, 'get_selected_tags'):
+            # ProjectTagSelector
+            selected_ids = self.tag_selector.get_selected_tags()
+            for tag_id in selected_ids:
+                tag = self.global_tag_manager.get_tag(tag_id)
+                if tag:
+                    tags.append(tag.name)
+        elif hasattr(self, 'tag_selector'):
+            # QLineEdit fallback
+            tags_text = self.tag_selector.text().strip()
+            tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()] if tags_text else []
 
         return {
             'table_name': self.table_name_input.text().strip(),
