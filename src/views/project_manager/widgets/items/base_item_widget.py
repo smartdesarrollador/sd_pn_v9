@@ -10,12 +10,12 @@ Versión: 1.0
 
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout
 from PyQt6.QtCore import Qt, pyqtSignal
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from ..common.copy_button import CopyButton
 import pyperclip
 
 
-class BaseItemWidget(QFrame, ABC):
+class BaseItemWidget(QFrame):
     """
     Clase base abstracta para todos los widgets de items
 

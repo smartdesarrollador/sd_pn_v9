@@ -6520,7 +6520,7 @@ class DBManager:
                 SELECT t.id, t.name, t.color, t.description,
                        t.created_at, t.updated_at, o.order_index
                 FROM project_element_tags t
-                INNER JOIN project_tag_order o ON t.id = o.tag_id
+                INNER JOIN project_tag_orders o ON t.id = o.tag_id
                 WHERE o.project_id = ?
                 ORDER BY o.order_index ASC, t.name ASC
             """, (project_id,))

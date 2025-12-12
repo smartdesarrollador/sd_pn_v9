@@ -62,12 +62,13 @@ class ProjectDataManager:
                 ],
                 'ungrouped_items': [...]
             }
-
-        NOTA: Por ahora retorna datos mock para testing.
         """
-        # TODO: En Fase 5, integrar con BD real
-        # Por ahora, datos mock para testing
-        return self._get_mock_project_data(project_id)
+        # Si no hay DBManager, usar datos mock
+        if not self.db:
+            return self._get_mock_project_data(project_id)
+
+        # Obtener datos reales de la BD
+        return self._get_real_project_data(project_id)
 
     def _get_mock_project_data(self, project_id: int) -> Dict:
         """
@@ -208,6 +209,255 @@ Python fue creado por Guido van Rossum y lanzado por primera vez en 1991. El nom
                 }
             ]
         }
+
+    def _get_real_project_data(self, project_id: int) -> Optional[Dict]:
+        """
+        Obtener datos reales del proyecto desde la base de datos
+
+        Args:
+            project_id: ID del proyecto
+
+        Returns:
+            Diccionario con estructura de datos del proyecto o None si no existe
+        """
+        try:
+            # 1. Obtener información básica del proyecto
+            project = self.db.get_project(project_id)
+            if not project:
+                return None
+
+            # 2. Obtener tags del proyecto (ordenados)
+            project_tags = self.db.get_tags_for_project(project_id)
+
+            # 3. Construir estructura de tags con sus grupos
+            tags_data = []
+
+            for project_tag in project_tags:
+                tag_id = project_tag['id']
+                tag_name = project_tag['name']
+                tag_color = project_tag.get('color', '#808080')
+
+                # Obtener todas las relaciones del proyecto
+                all_relations = self.db.get_project_relations(project_id)
+
+                # Filtrar relaciones que están asociadas a este tag
+                # (basado en la tabla project_element_tag_associations)
+                tag_relations = self._get_relations_for_tag(tag_id, all_relations)
+
+                # Agrupar relaciones por tipo de entidad
+                groups_data = []
+
+                # Procesar categorías
+                category_relations = [r for r in tag_relations if r['entity_type'] == 'category']
+                for rel in category_relations:
+                    category_id = rel['entity_id']
+                    # Obtener items de la categoría
+                    items = self.db.get_items_by_category(category_id)
+
+                    if items:  # Solo agregar si tiene items
+                        # Obtener nombre de categoría
+                        category_name = self._get_category_name(category_id)
+
+                        groups_data.append({
+                            'type': 'category',
+                            'name': category_name,
+                            'items': self._format_items(items)
+                        })
+
+                # Procesar listas
+                list_relations = [r for r in tag_relations if r['entity_type'] == 'list']
+                for rel in list_relations:
+                    list_id = rel['entity_id']
+                    # Obtener items de la lista
+                    items = self.db.get_items_by_lista(list_id)
+
+                    if items:  # Solo agregar si tiene items
+                        # Obtener nombre de lista
+                        list_name = items[0].get('lista_name', 'Lista sin nombre') if items else 'Lista'
+
+                        groups_data.append({
+                            'type': 'list',
+                            'name': list_name,
+                            'items': self._format_items(items)
+                        })
+
+                # Procesar tags de items
+                tag_relations_items = [r for r in tag_relations if r['entity_type'] == 'tag']
+                for rel in tag_relations_items:
+                    item_tag_id = rel['entity_id']
+                    # Obtener items con ese tag
+                    items = self.db.get_items_by_tag_id(item_tag_id)
+
+                    if items:  # Solo agregar si tiene items
+                        # Obtener nombre del tag
+                        tag_name_item = self._get_item_tag_name(item_tag_id)
+
+                        groups_data.append({
+                            'type': 'tag',
+                            'name': tag_name_item,
+                            'items': self._format_items(items)
+                        })
+
+                # Solo agregar el tag si tiene grupos con items
+                if groups_data:
+                    tags_data.append({
+                        'tag_name': tag_name,
+                        'tag_color': tag_color,
+                        'groups': groups_data
+                    })
+
+            # 4. Obtener items sin agrupar (items del proyecto que no están bajo ningún tag)
+            ungrouped_items = self._get_ungrouped_items(project_id, tags_data)
+
+            # 5. Construir y retornar estructura final
+            return {
+                'project_id': project_id,
+                'project_name': project.get('name', 'Proyecto sin nombre'),
+                'project_icon': project.get('icon', '📁'),
+                'tags': tags_data,
+                'ungrouped_items': ungrouped_items
+            }
+
+        except Exception as e:
+            # Log del error
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error obteniendo datos reales del proyecto {project_id}: {e}")
+            # Retornar datos mock en caso de error
+            return self._get_mock_project_data(project_id)
+
+    def _get_relations_for_tag(self, tag_id: int, all_relations: List[Dict]) -> List[Dict]:
+        """
+        Obtiene las relaciones asociadas a un tag específico del proyecto
+
+        Args:
+            tag_id: ID del tag de proyecto
+            all_relations: Lista de todas las relaciones del proyecto
+
+        Returns:
+            Lista de relaciones asociadas al tag
+        """
+        # Obtener asociaciones del tag con relaciones
+        tag_associations = self.db.get_project_relations_by_tag(tag_id)
+
+        # Extraer IDs de relaciones
+        relation_ids = [assoc['id'] for assoc in tag_associations]
+
+        # Filtrar relaciones
+        return [rel for rel in all_relations if rel['id'] in relation_ids]
+
+    def _get_category_name(self, category_id: int) -> str:
+        """
+        Obtiene el nombre de una categoría
+
+        Args:
+            category_id: ID de la categoría
+
+        Returns:
+            Nombre de la categoría
+        """
+        try:
+            conn = self.db.connect()
+            cursor = conn.execute("SELECT name FROM categories WHERE id = ?", (category_id,))
+            row = cursor.fetchone()
+            return row['name'] if row else f'Categoría {category_id}'
+        except:
+            return f'Categoría {category_id}'
+
+    def _get_item_tag_name(self, tag_id: int) -> str:
+        """
+        Obtiene el nombre de un tag de item
+
+        Args:
+            tag_id: ID del tag
+
+        Returns:
+            Nombre del tag
+        """
+        try:
+            conn = self.db.connect()
+            cursor = conn.execute("SELECT name FROM tags WHERE id = ?", (tag_id,))
+            row = cursor.fetchone()
+            return row['name'] if row else f'Tag {tag_id}'
+        except:
+            return f'Tag {tag_id}'
+
+    def _format_items(self, items: List[Dict]) -> List[Dict]:
+        """
+        Formatea items para la vista completa
+
+        Args:
+            items: Lista de items de la BD
+
+        Returns:
+            Lista de items formateados
+        """
+        formatted_items = []
+
+        for item in items:
+            formatted_items.append({
+                'id': item.get('id'),
+                'label': item.get('label', 'Item sin nombre'),
+                'content': item.get('content', ''),
+                'type': item.get('type', 'TEXT'),
+                'description': item.get('description', '')
+            })
+
+        return formatted_items
+
+    def _get_ungrouped_items(self, project_id: int, tags_data: List[Dict]) -> List[Dict]:
+        """
+        Obtiene items del proyecto que no están bajo ningún tag
+
+        Args:
+            project_id: ID del proyecto
+            tags_data: Datos de tags ya procesados
+
+        Returns:
+            Lista de items sin agrupar
+        """
+        # Obtener todos los IDs de items que ya están en tags
+        grouped_item_ids = set()
+        for tag in tags_data:
+            for group in tag.get('groups', []):
+                for item in group.get('items', []):
+                    grouped_item_ids.add(item['id'])
+
+        # Obtener todas las relaciones del proyecto
+        all_relations = self.db.get_project_relations(project_id)
+
+        # Obtener todos los items del proyecto
+        all_project_items = []
+
+        # Items de categorías del proyecto
+        category_relations = [r for r in all_relations if r['entity_type'] == 'category']
+        for rel in category_relations:
+            items = self.db.get_items_by_category(rel['entity_id'])
+            all_project_items.extend(items)
+
+        # Items de listas del proyecto
+        list_relations = [r for r in all_relations if r['entity_type'] == 'list']
+        for rel in list_relations:
+            items = self.db.get_items_by_lista(rel['entity_id'])
+            all_project_items.extend(items)
+
+        # Filtrar items que no están en grouped_item_ids
+        ungrouped = []
+        seen_ids = set()
+
+        for item in all_project_items:
+            item_id = item.get('id')
+            if item_id not in grouped_item_ids and item_id not in seen_ids:
+                seen_ids.add(item_id)
+                ungrouped.append({
+                    'id': item_id,
+                    'label': item.get('label', 'Item sin nombre'),
+                    'content': item.get('content', ''),
+                    'type': item.get('type', 'TEXT'),
+                    'description': item.get('description', '')
+                })
+
+        return ungrouped
 
     def filter_by_project_tags(
         self,

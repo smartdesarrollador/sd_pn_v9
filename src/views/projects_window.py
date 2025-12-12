@@ -23,6 +23,7 @@ from src.views.widgets.project_relation_widget import ProjectRelationWidget
 from src.views.widgets.project_component_widget import ProjectComponentWidget
 from src.views.widgets.project_card_widget import ProjectCardWidget
 from src.views.widgets.responsive_card_grid import ResponsiveCardGrid
+from src.views.project_manager.full_view_panel import ProjectFullViewPanel
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +262,27 @@ class ProjectsWindow(QMainWindow):
         self.mode_toggle_btn.setToolTip("Vista Limpia")
         header_layout.addWidget(self.mode_toggle_btn)
 
+        # Botón Vista Completa
+        self.full_view_btn = QPushButton("📋")
+        self.full_view_btn.setFixedSize(40, 40)
+        self.full_view_btn.clicked.connect(self.show_full_view)
+        self.full_view_btn.setToolTip("Vista Completa - Ver todos los elementos e items del proyecto")
+        self.full_view_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 16pt;
+                padding: 5px;
+                background-color: #00BFFF;
+            }
+            QPushButton:hover {
+                background-color: #00D4FF;
+                border-color: #00ff88;
+            }
+            QPushButton:pressed {
+                background-color: #0099CC;
+            }
+        """)
+        header_layout.addWidget(self.full_view_btn)
+
         layout.addLayout(header_layout)
 
         # Descripción
@@ -290,6 +312,11 @@ class ProjectsWindow(QMainWindow):
         self.clean_mode_grid = ResponsiveCardGrid()
         self.clean_mode_grid.setVisible(False)  # Oculto por defecto
         layout.addWidget(self.clean_mode_grid)
+
+        # Vista Completa (ProjectFullViewPanel)
+        self.full_view_panel = ProjectFullViewPanel(db_manager=self.db)
+        self.full_view_panel.setVisible(False)  # Oculto por defecto
+        layout.addWidget(self.full_view_panel)
 
         # Botones inferiores (solo en modo edición)
         self.bottom_buttons = QWidget()
@@ -1004,9 +1031,10 @@ class ProjectsWindow(QMainWindow):
         self.mode_toggle_btn.setText("👁️")
         self.mode_toggle_btn.setToolTip("Vista Limpia")
 
-        # Mostrar container de modo edición, ocultar grid
+        # Mostrar container de modo edición, ocultar grid y vista completa
         self.edit_mode_container.setVisible(True)
         self.clean_mode_grid.setVisible(False)
+        self.full_view_panel.setVisible(False)
 
         if self.current_project_id:
             self.load_project(self.current_project_id)
@@ -1021,9 +1049,46 @@ class ProjectsWindow(QMainWindow):
         # Ocultar container de modo edición, mostrar grid
         self.edit_mode_container.setVisible(False)
         self.clean_mode_grid.setVisible(True)
+        self.full_view_panel.setVisible(False)
 
         if self.current_project_id:
             self.load_project(self.current_project_id)
+
+    def show_full_view(self):
+        """Muestra la Vista Completa del proyecto"""
+        if not self.current_project_id:
+            QMessageBox.warning(
+                self,
+                "Proyecto no seleccionado",
+                "Por favor selecciona un proyecto primero para ver su vista completa."
+            )
+            return
+
+        # Ocultar otros modos
+        self.toolbar.setVisible(False)
+        self.bottom_buttons.setVisible(False)
+        self.edit_mode_container.setVisible(False)
+        self.clean_mode_grid.setVisible(False)
+
+        # Mostrar Vista Completa
+        self.full_view_panel.setVisible(True)
+
+        # Cargar proyecto en Vista Completa
+        self.full_view_panel.load_project(self.current_project_id)
+
+        # Cambiar tooltip del botón
+        self.full_view_btn.setToolTip("Volver a vista anterior")
+
+        # Log
+        logger.info(f"Vista Completa activada para proyecto {self.current_project_id}")
+
+        print("\n" + "=" * 70)
+        print(f"📋 VISTA COMPLETA ACTIVADA")
+        print("=" * 70)
+        print(f"Proyecto ID: {self.current_project_id}")
+        print(f"Proyecto: {self.project_name_label.text()}")
+        print("\nMostrando todos los elementos e items del proyecto con contenido completo")
+        print("=" * 70 + "\n")
 
     def add_element_to_project(self, entity_type: str):
         """Agrega un elemento al proyecto"""
