@@ -2,13 +2,13 @@
 Widget para items de tipo TEXT
 
 Muestra items de texto con formato de párrafo.
-Para contenido extenso (>800 chars) usa QTextEdit con scroll.
+Para contenido extenso (>1500 chars) muestra botón de colapsar/expandir.
 
 Autor: Widget Sidebar Team
-Versión: 1.0
+Versión: 2.0
 """
 
-from PyQt6.QtWidgets import QLabel, QTextEdit, QSizePolicy
+from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy
 from PyQt6.QtCore import Qt
 from .base_item_widget import BaseItemWidget
 from ...styles.full_view_styles import FullViewStyles
@@ -19,13 +19,13 @@ class TextItemWidget(BaseItemWidget):
     Widget para items de tipo TEXT
 
     Características:
-    - Muestra texto en formato de párrafo
-    - Para contenido corto (<800 chars): QLabel con word-wrap
-    - Para contenido extenso (≥800 chars): QTextEdit con scroll vertical
-    - Altura máxima con scroll: 200px
+    - Muestra texto en formato de párrafo sin límites
+    - Para contenido extenso (>1500 chars): botón de colapsar/expandir
+    - Por defecto: todo el contenido visible (expandido)
     """
 
-    MAX_CONTENT_LENGTH = 800  # Límite para mostrar contenido sin scroll
+    COLLAPSIBLE_LENGTH = 1500  # Límite para mostrar botón de colapso
+    COLLAPSED_PREVIEW = 200    # Caracteres a mostrar cuando está colapsado
 
     def __init__(self, item_data: dict, parent=None):
         """
@@ -35,11 +35,14 @@ class TextItemWidget(BaseItemWidget):
             item_data: Diccionario con datos del item
             parent: Widget padre
         """
+        self.is_expanded = True  # Por defecto expandido
+        self.content_label = None
+        self.toggle_button = None
         super().__init__(item_data, parent)
         self.apply_styles()
 
     def render_content(self):
-        """Renderizar contenido de texto"""
+        """Renderizar contenido de texto sin límites ni scroll"""
         # Título (si existe)
         label = self.get_item_label()
         if label and label != 'Sin título':
@@ -56,82 +59,50 @@ class TextItemWidget(BaseItemWidget):
         # Contenido
         content = self.get_item_content()
         if content:
-            # Usar QTextEdit con scroll para todo el contenido
-            content_text = QTextEdit()
-            content_text.setObjectName("text_content")
-            content_text.setPlainText(content)
-            content_text.setReadOnly(True)
-
-            # Límite de altura máxima: 300px
-            content_text.setMaximumHeight(300)
-
-            # Establecer altura mínima para mejor visualización
-            content_text.setMinimumHeight(60)
-
-            # Política de tamaño: expandir horizontalmente, altura fija
-            content_text.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Fixed
+            # Crear label para el contenido (sin límites)
+            self.content_label = QLabel()
+            self.content_label.setObjectName("text_content")
+            self.content_label.setWordWrap(True)
+            self.content_label.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
             )
-
-            # Habilitar scrollbars vertical y horizontal según sea necesario
-            content_text.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAsNeeded
-            )
-            content_text.setHorizontalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAsNeeded
-            )
-
-            # Deshabilitar word wrap para permitir scroll horizontal
-            content_text.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-
-            content_text.setStyleSheet("""
-                QTextEdit {
-                    background-color: transparent;
-                    border: none;
-                    color: #E0E0E0;
-                    font-size: 13px;
-                    line-height: 1.6;
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                }
-                QScrollBar:vertical {
-                    background-color: #2A2A2A;
-                    width: 8px;
-                    border-radius: 4px;
-                }
-                QScrollBar::handle:vertical {
-                    background-color: #505050;
-                    border-radius: 4px;
-                    min-height: 20px;
-                }
-                QScrollBar::handle:vertical:hover {
-                    background-color: #606060;
-                }
-                QScrollBar::add-line:vertical,
-                QScrollBar::sub-line:vertical {
-                    border: none;
-                    background: none;
-                }
-                QScrollBar:horizontal {
-                    background-color: #2A2A2A;
-                    height: 8px;
-                    border-radius: 4px;
-                }
-                QScrollBar::handle:horizontal {
-                    background-color: #505050;
-                    border-radius: 4px;
-                    min-width: 20px;
-                }
-                QScrollBar::handle:horizontal:hover {
-                    background-color: #606060;
-                }
-                QScrollBar::add-line:horizontal,
-                QScrollBar::sub-line:horizontal {
-                    border: none;
-                    background: none;
-                }
+            self.content_label.setStyleSheet("""
+                color: #E0E0E0;
+                font-size: 13px;
+                line-height: 1.6;
+                font-family: 'Segoe UI', Arial, sans-serif;
             """)
-            self.content_layout.addWidget(content_text)
+
+            # Si el contenido es largo, mostrar todo por defecto (expandido)
+            if len(content) > self.COLLAPSIBLE_LENGTH:
+                self.content_label.setText(content)
+                self.content_layout.addWidget(self.content_label)
+
+                # Agregar botón de colapsar/expandir
+                self.toggle_button = QPushButton("▲ Colapsar")
+                self.toggle_button.setCursor(Qt.CursorShape.PointingHandCursor)
+                self.toggle_button.clicked.connect(self.toggle_content)
+                self.toggle_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: transparent;
+                        border: 1px solid #404040;
+                        border-radius: 4px;
+                        padding: 6px 12px;
+                        color: #00BFFF;
+                        font-size: 12px;
+                        font-weight: bold;
+                        margin-top: 8px;
+                    }
+                    QPushButton:hover {
+                        background-color: #2A2A2A;
+                        border-color: #00BFFF;
+                    }
+                """)
+                self.content_layout.addWidget(self.toggle_button)
+            else:
+                # Contenido corto: mostrar todo sin botón
+                self.content_label.setText(content)
+                self.content_layout.addWidget(self.content_label)
 
         # Descripción (si existe)
         description = self.get_item_description()
@@ -146,6 +117,22 @@ class TextItemWidget(BaseItemWidget):
             """)
             desc_label.setWordWrap(True)
             self.content_layout.addWidget(desc_label)
+
+    def toggle_content(self):
+        """Alternar entre contenido colapsado y expandido"""
+        content = self.get_item_content()
+
+        if self.is_expanded:
+            # Colapsar: mostrar solo preview
+            preview = content[:self.COLLAPSED_PREVIEW] + "..."
+            self.content_label.setText(preview)
+            self.toggle_button.setText("▼ Expandir")
+            self.is_expanded = False
+        else:
+            # Expandir: mostrar todo
+            self.content_label.setText(content)
+            self.toggle_button.setText("▲ Colapsar")
+            self.is_expanded = True
 
     def apply_styles(self):
         """Aplicar estilos CSS"""

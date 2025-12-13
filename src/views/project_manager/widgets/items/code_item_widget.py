@@ -1,111 +1,17 @@
 """
 Widget para items de tipo CODE
 
-Muestra items de código con syntax highlighting.
-Para contenido extenso (>800 chars) usa scroll vertical.
+Muestra items de código sin límites.
+Para contenido extenso (>1500 chars) muestra botón de colapsar/expandir.
 
 Autor: Widget Sidebar Team
-Versión: 1.0
+Versión: 2.0
 """
 
-from PyQt6.QtWidgets import QTextEdit, QLabel, QSizePolicy
-from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont
-from PyQt6.QtCore import Qt, QRegularExpression
+from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy
+from PyQt6.QtCore import Qt
 from .base_item_widget import BaseItemWidget
 from ...styles.full_view_styles import FullViewStyles
-
-
-class CodeSyntaxHighlighter(QSyntaxHighlighter):
-    """
-    Syntax highlighter simple para código
-
-    Soporta highlighting básico para:
-    - Keywords de programación
-    - Strings
-    - Comentarios
-    - Comandos de terminal
-    """
-
-    def __init__(self, parent=None):
-        """
-        Inicializar syntax highlighter
-
-        Args:
-            parent: QTextDocument padre
-        """
-        super().__init__(parent)
-        self.highlighting_rules = []
-
-        # Formato para keywords
-        keyword_format = QTextCharFormat()
-        keyword_format.setForeground(QColor("#FF79C6"))
-        keyword_format.setFontWeight(QFont.Weight.Bold)
-
-        keywords = [
-            "\\bfunction\\b", "\\bvar\\b", "\\blet\\b", "\\bconst\\b",
-            "\\bif\\b", "\\belse\\b", "\\bfor\\b", "\\bwhile\\b",
-            "\\breturn\\b", "\\bimport\\b", "\\bfrom\\b", "\\bdef\\b",
-            "\\bclass\\b", "\\btry\\b", "\\bexcept\\b", "\\basync\\b",
-            "\\bawait\\b", "\\bgit\\b", "\\bnpm\\b", "\\bpip\\b",
-            "\\bpublic\\b", "\\bprivate\\b", "\\bstatic\\b", "\\bvoid\\b"
-        ]
-
-        for keyword in keywords:
-            self.highlighting_rules.append((
-                QRegularExpression(keyword),
-                keyword_format
-            ))
-
-        # Formato para strings
-        string_format = QTextCharFormat()
-        string_format.setForeground(QColor("#F1FA8C"))
-        self.highlighting_rules.append((
-            QRegularExpression('"[^"]*"'),
-            string_format
-        ))
-        self.highlighting_rules.append((
-            QRegularExpression("'[^']*'"),
-            string_format
-        ))
-
-        # Formato para comentarios
-        comment_format = QTextCharFormat()
-        comment_format.setForeground(QColor("#6272A4"))
-        comment_format.setFontItalic(True)
-        self.highlighting_rules.append((
-            QRegularExpression("//[^\n]*"),
-            comment_format
-        ))
-        self.highlighting_rules.append((
-            QRegularExpression("#[^\n]*"),
-            comment_format
-        ))
-
-        # Formato para comandos ($ al inicio)
-        command_format = QTextCharFormat()
-        command_format.setForeground(QColor("#7CFC00"))
-        command_format.setFontWeight(QFont.Weight.Bold)
-        self.highlighting_rules.append((
-            QRegularExpression("^\\$.*$"),
-            command_format
-        ))
-
-    def highlightBlock(self, text):
-        """
-        Aplicar highlighting al bloque de texto
-
-        Args:
-            text: Texto del bloque a resaltar
-        """
-        for pattern, format_style in self.highlighting_rules:
-            iterator = pattern.globalMatch(text)
-            while iterator.hasNext():
-                match = iterator.next()
-                self.setFormat(
-                    match.capturedStart(),
-                    match.capturedLength(),
-                    format_style
-                )
 
 
 class CodeItemWidget(BaseItemWidget):
@@ -113,14 +19,14 @@ class CodeItemWidget(BaseItemWidget):
     Widget para items de tipo CODE
 
     Características:
-    - Muestra código con syntax highlighting
+    - Muestra código sin límites
     - Font monospace (Consolas, Courier New)
-    - Para contenido corto (<800 chars): altura ajustada al contenido
-    - Para contenido extenso (≥800 chars): scroll vertical
-    - Altura máxima con scroll: 250px
+    - Para contenido extenso (>1500 chars): botón de colapsar/expandir
+    - Por defecto: todo el contenido visible (expandido)
     """
 
-    MAX_CONTENT_LENGTH = 800  # Límite para mostrar contenido sin scroll
+    COLLAPSIBLE_LENGTH = 1500  # Límite para mostrar botón de colapso
+    COLLAPSED_PREVIEW = 200    # Caracteres a mostrar cuando está colapsado
 
     def __init__(self, item_data: dict, parent=None):
         """
@@ -130,11 +36,14 @@ class CodeItemWidget(BaseItemWidget):
             item_data: Diccionario con datos del item
             parent: Widget padre
         """
+        self.is_expanded = True  # Por defecto expandido
+        self.content_label = None
+        self.toggle_button = None
         super().__init__(item_data, parent)
         self.apply_styles()
 
     def render_content(self):
-        """Renderizar contenido de código"""
+        """Renderizar contenido de código sin límites ni scroll"""
         # Título (si existe)
         label = self.get_item_label()
         if label and label != 'Sin título':
@@ -148,44 +57,70 @@ class CodeItemWidget(BaseItemWidget):
             """)
             self.content_layout.addWidget(title_label)
 
-        # Editor de código
+        # Contenido de código
         content = self.get_item_content()
         if content:
-            self.code_editor = QTextEdit()
-            self.code_editor.setObjectName("code_content")
-            self.code_editor.setPlainText(content)
-            self.code_editor.setReadOnly(True)
-            self.code_editor.setFrameStyle(0)
-
-            # Límite de altura máxima: 300px
-            self.code_editor.setMaximumHeight(300)
-
-            # Establecer altura mínima para mejor visualización
-            self.code_editor.setMinimumHeight(60)
-
-            # Política de tamaño: expandir horizontalmente, altura fija
-            self.code_editor.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Fixed
+            # Crear label para el código (sin límites)
+            self.content_label = QLabel()
+            self.content_label.setObjectName("code_content")
+            self.content_label.setWordWrap(False)  # Preservar formato de código
+            self.content_label.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
             )
+            self.content_label.setStyleSheet("""
+                color: #7CFC00;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 12px;
+                background-color: transparent;
+                white-space: pre;
+            """)
 
-            # Habilitar scrollbars vertical y horizontal según sea necesario
-            self.code_editor.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAsNeeded
-            )
-            self.code_editor.setHorizontalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAsNeeded
-            )
+            # Si el contenido es largo, mostrar todo por defecto (expandido)
+            if len(content) > self.COLLAPSIBLE_LENGTH:
+                self.content_label.setText(content)
+                self.content_layout.addWidget(self.content_label)
 
-            # Deshabilitar word wrap para permitir scroll horizontal
-            self.code_editor.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+                # Agregar botón de colapsar/expandir
+                self.toggle_button = QPushButton("▲ Colapsar")
+                self.toggle_button.setCursor(Qt.CursorShape.PointingHandCursor)
+                self.toggle_button.clicked.connect(self.toggle_content)
+                self.toggle_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: transparent;
+                        border: 1px solid #2D4A2B;
+                        border-radius: 4px;
+                        padding: 6px 12px;
+                        color: #7CFC00;
+                        font-size: 12px;
+                        font-weight: bold;
+                        margin-top: 8px;
+                    }
+                    QPushButton:hover {
+                        background-color: #141920;
+                        border-color: #7CFC00;
+                    }
+                """)
+                self.content_layout.addWidget(self.toggle_button)
+            else:
+                # Contenido corto: mostrar todo sin botón
+                self.content_label.setText(content)
+                self.content_layout.addWidget(self.content_label)
 
-            # Aplicar syntax highlighting
-            self.highlighter = CodeSyntaxHighlighter(
-                self.code_editor.document()
-            )
+    def toggle_content(self):
+        """Alternar entre contenido colapsado y expandido"""
+        content = self.get_item_content()
 
-            self.content_layout.addWidget(self.code_editor)
+        if self.is_expanded:
+            # Colapsar: mostrar solo preview
+            preview = content[:self.COLLAPSED_PREVIEW] + "\n..."
+            self.content_label.setText(preview)
+            self.toggle_button.setText("▼ Expandir")
+            self.is_expanded = False
+        else:
+            # Expandir: mostrar todo
+            self.content_label.setText(content)
+            self.toggle_button.setText("▲ Colapsar")
+            self.is_expanded = True
 
     def apply_styles(self):
         """Aplicar estilos CSS"""
