@@ -873,7 +873,8 @@ class UniversalSearchDialog(QDialog):
                 item.widget().deleteLater()
 
         # Título con icono
-        title = QLabel(f"{result.icon} {result.name}")
+        title_text = f"{result.icon} {result.name}" if result.icon else result.name
+        title = QLabel(title_text)
         title.setStyleSheet("""
             QLabel {
                 font-size: 14pt;
