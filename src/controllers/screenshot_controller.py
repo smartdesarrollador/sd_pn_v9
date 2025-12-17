@@ -319,6 +319,12 @@ class ScreenshotController(QObject):
             import os
             filename = os.path.basename(filepath)
 
+            # Extraer created_at de los metadatos si existe
+            created_at_str = None
+            if metadata.get('file_created_at'):
+                # Convertir datetime a string en formato SQLite
+                created_at_str = metadata['file_created_at'].strftime('%Y-%m-%d %H:%M:%S')
+
             # Crear item con datos del diálogo
             item_id = self.db.add_item(
                 category_id=item_data['category_id'],
@@ -333,7 +339,8 @@ class ScreenshotController(QObject):
                 file_extension=metadata.get('file_extension'),
                 original_filename=filename,  # Solo nombre de archivo relativo
                 file_hash=metadata.get('file_hash'),
-                preview_url=item_data.get('preview_url')  # URL opcional
+                preview_url=item_data.get('preview_url'),  # URL opcional
+                created_at=created_at_str  # Fecha extraída del nombre del archivo
             )
 
             logger.info(f"Screenshot item created from dialog: ID {item_id}")

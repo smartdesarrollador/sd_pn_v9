@@ -12,6 +12,8 @@ Proporciona funciones para:
 import os
 import hashlib
 import mimetypes
+import re
+from datetime import datetime
 from typing import Dict, Optional
 from pathlib import Path
 
@@ -54,6 +56,7 @@ def extract_file_metadata(file_path: str) -> Dict[str, any]:
             - file_extension: Extensión con punto
             - original_filename: Nombre del archivo
             - file_hash: Hash SHA-256
+            - file_created_at: datetime de creación extraído del nombre (solo para screenshots) o None
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Archivo no encontrado: {file_path}")
@@ -74,12 +77,33 @@ def extract_file_metadata(file_path: str) -> Dict[str, any]:
     # Calcular hash
     file_hash = calculate_sha256(file_path)
 
+    # Intentar extraer fecha del nombre del archivo
+    # Formato esperado: screenshot_YYYYMMDD_HHMMSS.ext
+    file_created_at = None
+    filename = path_obj.stem  # Nombre sin extensión
+
+    # Patrón: screenshot_YYYYMMDD_HHMMSS
+    pattern = r'screenshot_(\d{8})_(\d{6})'
+    match = re.search(pattern, filename)
+
+    if match:
+        date_str = match.group(1)  # YYYYMMDD
+        time_str = match.group(2)  # HHMMSS
+
+        try:
+            # Parsear fecha y hora
+            file_created_at = datetime.strptime(f"{date_str}_{time_str}", "%Y%m%d_%H%M%S")
+        except ValueError:
+            # Si falla el parseo, dejar como None
+            pass
+
     return {
         'file_size': stat.st_size,
         'file_type': file_type_category,
         'file_extension': path_obj.suffix,
         'original_filename': path_obj.name,
-        'file_hash': file_hash
+        'file_hash': file_hash,
+        'file_created_at': file_created_at  # datetime object o None
     }
 
 

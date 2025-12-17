@@ -1713,7 +1713,9 @@ class DBManager:
                  preview_url: str = None,
                  # Table fields (nueva arquitectura v3.1.0)
                  table_id: int = None,
-                 orden_table: str = None) -> int:
+                 orden_table: str = None,
+                 # Custom timestamp (opcional)
+                 created_at: str = None) -> int:
         """
         Add new item to category
 
@@ -1741,6 +1743,7 @@ class DBManager:
             original_filename: Original filename (optional)
             file_hash: SHA256 hash for duplicate detection (optional)
             preview_url: URL to open when clicking on item (optional, for screenshots/images)
+            created_at: Custom creation timestamp (optional, format: YYYY-MM-DD HH:MM:SS)
 
         Returns:
             int: New item ID
@@ -1758,6 +1761,9 @@ class DBManager:
 
         component_config_json = json.dumps(component_config or {})
 
+        # Usar created_at personalizado si se proporciona, de lo contrario CURRENT_TIMESTAMP
+        created_at_value = created_at if created_at else None
+
         query = """
             INSERT INTO items
             (category_id, label, content, type, icon, is_sensitive, is_favorite, favorite_order,
@@ -1767,7 +1773,7 @@ class DBManager:
              file_extension, original_filename, file_hash, preview_url, table_id, orden_table,
              created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)
         """
         item_id = self.execute_update(
             query,
@@ -1776,7 +1782,7 @@ class DBManager:
              is_archived, list_id, is_list, list_group, orden_lista, is_component,
              name_component, component_config_json, html_content, css_content, js_content,
              file_size, file_type, file_extension, original_filename, file_hash, preview_url,
-             table_id, orden_table)
+             table_id, orden_table, created_at_value)
         )
 
         # Create tag relationships using relational structure
