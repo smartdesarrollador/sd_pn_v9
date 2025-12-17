@@ -2076,10 +2076,64 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"Error handling panel close: {e}", exc_info=True)
 
+    def _verify_master_password_for_item(self, item: Item) -> bool:
+        """
+        Verify master password for sensitive item
+
+        IMPORTANT: If no master password is configured, allows access immediately.
+        This makes master password OPTIONAL.
+
+        Args:
+            item: Item to verify access for
+
+        Returns:
+            True if access granted (password verified OR no master password configured)
+            False if access denied (user cancelled or wrong password)
+        """
+        from core.master_password_manager import MasterPasswordManager
+        from core.master_auth_cache import get_master_auth_cache
+        from views.dialogs.master_password_dialog import MasterPasswordDialog
+
+        master_mgr = MasterPasswordManager()
+
+        # ⚠️ KEY: If no master password configured, allow access without prompting
+        if not master_mgr.has_master_password():
+            logger.debug(f"No master password configured - allowing access to sensitive item: {item.label}")
+            return True
+
+        # Master password exists - check cache first
+        cache = get_master_auth_cache()
+        if cache.is_authenticated():
+            cache.extend_cache()  # Extend cache time
+            logger.debug(f"Master password cache valid - allowing access to: {item.label}")
+            return True
+
+        # Cache expired - prompt for master password
+        logger.info(f"Prompting for master password to access sensitive item: {item.label}")
+
+        verified = MasterPasswordDialog.verify(
+            title="Item Sensible",
+            message=f"Este item contiene información sensible.\nIngresa tu contraseña maestra para copiar:\n\n\"{item.label}\"",
+            parent=self
+        )
+
+        if verified:
+            logger.info(f"Master password verified - access granted to: {item.label}")
+            return True
+        else:
+            logger.warning(f"Master password verification failed/cancelled - access denied to: {item.label}")
+            return False
+
     def on_item_clicked(self, item: Item):
         """Handle item button click"""
         try:
             logger.info(f"Item clicked: {item.label}")
+
+            # ⚠️ PROTECTION: Verify master password for sensitive items
+            if hasattr(item, 'is_sensitive') and item.is_sensitive:
+                if not self._verify_master_password_for_item(item):
+                    logger.warning(f"Access denied to sensitive item: {item.label}")
+                    return  # Access denied - don't copy
 
             # Copy to clipboard via controller
             if self.controller:

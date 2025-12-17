@@ -72,7 +72,8 @@
       "Bash(if not exist \"src\\views\\area_manager\" mkdir \"src\\views\\area_manager\")",
       "Bash(copy:*)",
       "Bash(start /B python:*)",
-      "Bash(if not exist \"src\\views\\calendar\" mkdir \"src\\views\\calendar\")"
+      "Bash(if not exist \"src\\views\\calendar\" mkdir \"src\\views\\calendar\")",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
