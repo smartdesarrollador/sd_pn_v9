@@ -41,6 +41,7 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
         self.export_manager = ProjectExportManager(db_manager)
         self.current_project_id = None
         self._view_mode = 'edit'  # 'edit' o 'clean'
+        self._is_full_view = False  # Estado para saber si estamos en vista completa
         self._selected_insert_position = None  # (item_type, item_id, order_index) del elemento seleccionado
 
         # Atributos para minimización a barra lateral
@@ -516,7 +517,7 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
         self.load_project(project_id)
 
     def load_project(self, project_id: int):
-        """Carga un proyecto y muestra su contenido"""
+        """Carga un proyecto y muestra su contenido en Vista Completa por defecto"""
         self.current_project_id = project_id
         project = self.project_manager.get_project(project_id)
 
@@ -537,8 +538,27 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
         self._clear_canvas()
         self.clean_mode_grid.clear_cards()
 
+        # SIEMPRE mostrar Vista Completa por defecto al seleccionar un proyecto
+        self.show_full_view()
+
+    def _clear_canvas(self):
+        """Limpia el canvas eliminando todos los widgets"""
+        while self.canvas_layout.count() > 1:  # Mantener el stretch
+            child = self.canvas_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+    def _load_project_content(self):
+        """Carga el contenido del proyecto según el modo actual (edit o clean)"""
+        if not self.current_project_id:
+            return
+
+        # Limpiar canvas y grid
+        self._clear_canvas()
+        self.clean_mode_grid.clear_cards()
+
         # Cargar contenido ordenado
-        content = self.db.get_project_content_ordered(project_id)
+        content = self.db.get_project_content_ordered(self.current_project_id)
 
         # Aplicar filtros de tags si están activos
         if self.active_tag_filters:
@@ -549,11 +569,11 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
                 filter_tag_id = self.active_tag_filters[0]
 
                 # Sincronizar orden filtrado con contenido actual
-                self.db.sync_filtered_order_with_content(project_id, filter_tag_id, content)
+                self.db.sync_filtered_order_with_content(self.current_project_id, filter_tag_id, content)
 
                 # Aplicar orden filtrado
                 content = self.db.get_project_content_with_filtered_order(
-                    project_id, filter_tag_id, content
+                    self.current_project_id, filter_tag_id, content
                 )
                 logger.debug(f"Applied filtered order for tag {filter_tag_id}")
 
@@ -569,13 +589,6 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
             # Modo limpio: usar cards en grid
             for item in content:
                 self._add_card_widget(item)
-
-    def _clear_canvas(self):
-        """Limpia el canvas eliminando todos los widgets"""
-        while self.canvas_layout.count() > 1:  # Mantener el stretch
-            child = self.canvas_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
 
     def _add_relation_widget(self, relation):
         """Agrega un widget de relación al canvas"""
@@ -1105,16 +1118,25 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
             QMessageBox.critical(self, "Error", f"Error al abrir panel de items:\n{str(e)}")
 
     def toggle_view_mode(self):
-        """Alterna entre Modo Edición y Modo Vista Amigable"""
-        if self._view_mode == 'edit':
+        """Alterna entre Vista Completa, Modo Edición y Modo Vista Amigable"""
+        if self._is_full_view:
+            # Si estamos en vista completa, ir a modo edición
+            self._view_mode = 'edit'
+            self._apply_edit_view_mode()
+        elif self._view_mode == 'edit':
+            # Si estamos en modo edición, ir a modo limpio
             self._view_mode = 'clean'
             self._apply_clean_view_mode()
         else:
+            # Si estamos en modo limpio, volver a modo edición
             self._view_mode = 'edit'
             self._apply_edit_view_mode()
 
     def _apply_edit_view_mode(self):
         """Aplica estilo de Modo Edición"""
+        # Marcar que NO estamos en vista completa
+        self._is_full_view = False
+
         self.toolbar.setVisible(True)
         self.bottom_buttons.setVisible(True)
         self.mode_toggle_btn.setText("👁️")
@@ -1126,10 +1148,13 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
         self.full_view_panel.setVisible(False)
 
         if self.current_project_id:
-            self.load_project(self.current_project_id)
+            self._load_project_content()
 
     def _apply_clean_view_mode(self):
         """Aplica estilo de Modo Vista Amigable (Grid de Cards)"""
+        # Marcar que NO estamos en vista completa
+        self._is_full_view = False
+
         self.toolbar.setVisible(False)
         self.bottom_buttons.setVisible(False)
         self.mode_toggle_btn.setText("📝")
@@ -1141,7 +1166,7 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
         self.full_view_panel.setVisible(False)
 
         if self.current_project_id:
-            self.load_project(self.current_project_id)
+            self._load_project_content()
 
     def show_full_view(self):
         """Muestra la Vista Completa del proyecto"""
@@ -1152,6 +1177,9 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
                 "Por favor selecciona un proyecto primero para ver su vista completa."
             )
             return
+
+        # Marcar que estamos en vista completa
+        self._is_full_view = True
 
         # Ocultar otros modos
         self.toolbar.setVisible(False)
@@ -1177,8 +1205,8 @@ class ProjectsWindow(QMainWindow, TaskbarMinimizableMixin):
             self.full_view_panel.apply_filters(tag_names, match_mode)
             logger.debug(f"Filtros aplicados automáticamente en vista completa: {tag_names}")
 
-        # Cambiar tooltip del botón
-        self.full_view_btn.setToolTip("Volver a vista anterior")
+        # Cambiar tooltip del botón de modo
+        self.mode_toggle_btn.setToolTip("Modo Edición")
 
         # Log
         logger.info(f"Vista Completa activada para proyecto {self.current_project_id}")
