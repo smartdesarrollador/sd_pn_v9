@@ -334,9 +334,7 @@ class BaseItemWidget(QFrame):
 
         Botones:
         - Revelar/Ocultar (solo para items sensibles)
-        - Editar
         - Detalles (info)
-        - Más opciones (menú dropdown)
         """
         # Botón revelar/ocultar (solo para items sensibles)
         if self.item_data.get('is_sensitive', False):
@@ -363,26 +361,6 @@ class BaseItemWidget(QFrame):
             self.reveal_button.clicked.connect(self._toggle_reveal)
             self.buttons_layout.addWidget(self.reveal_button)
             self._is_revealed = False
-
-        # Botón editar
-        self.edit_btn = QPushButton("✏️")
-        self.edit_btn.setFixedSize(28, 28)
-        self.edit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.edit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 12pt;
-                padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: #3e3e42;
-                border-radius: 3px;
-            }
-        """)
-        self.edit_btn.setToolTip("Editar item")
-        self.edit_btn.clicked.connect(self._edit_item)
-        self.buttons_layout.addWidget(self.edit_btn)
 
         # Botón detalles (info)
         self.info_btn = QPushButton("ℹ️")
