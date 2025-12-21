@@ -661,6 +661,31 @@ class ProcessFloatingPanel(QWidget, TaskbarMinimizableMixin):
                         path_button.clicked.connect(lambda checked, content=step.item_content: self.on_path_button_clicked(content))
                         item_row_layout.addWidget(path_button)
 
+                    elif item_type == "WEB_STATIC":
+                        # WEB_STATIC button - render HTML in embedded browser
+                        web_static_button = QPushButton("📱")
+                        web_static_button.setFixedSize(35, 35)
+                        web_static_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                        web_static_button.setStyleSheet("""
+                            QPushButton {
+                                background-color: #4CAF50;
+                                color: #ffffff;
+                                border: none;
+                                border-radius: 4px;
+                                font-size: 16pt;
+                            }
+                            QPushButton:hover {
+                                background-color: #45a049;
+                            }
+                            QPushButton:pressed {
+                                background-color: #388E3C;
+                            }
+                        """)
+                        web_static_button.setToolTip(f"Renderizar aplicación web estática")
+                        # Pass the complete item object to the handler
+                        web_static_button.clicked.connect(lambda checked, it=item: self.on_web_static_button_clicked(it))
+                        item_row_layout.addWidget(web_static_button)
+
                     step_layout.addWidget(item_row_widget)
             else:
                 logger.warning(f"Item {step.item_id} not found for step {step.id}")
@@ -1179,6 +1204,29 @@ class ProcessFloatingPanel(QWidget, TaskbarMinimizableMixin):
                 self,
                 "Error",
                 f"No se pudo abrir la ruta:\n{path}\n\nError: {str(e)}"
+            )
+
+    def on_web_static_button_clicked(self, item: Item):
+        """Handle WEB_STATIC button click - render HTML in embedded browser"""
+        try:
+            logger.info(f"WEB_STATIC render requested for item: {item.label}")
+
+            # Import EmbeddedBrowserDialog
+            from src.views.dialogs.embedded_browser_dialog import EmbeddedBrowserDialog
+
+            # Create and show dialog with HTML content
+            dialog = EmbeddedBrowserDialog(html_content=item.content, parent=self)
+            dialog.setWindowTitle(f"🌐 {item.label}")
+            dialog.show()  # Use show() instead of exec() for non-modal dialog
+
+            logger.info(f"WEB_STATIC dialog opened for item: {item.label}")
+
+        except Exception as e:
+            logger.error(f"Error opening WEB_STATIC renderer for {item.label}: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al renderizar item web estático:\n\n{str(e)}"
             )
 
     def on_panel_resized(self, width: int, height: int):
