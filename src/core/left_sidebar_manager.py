@@ -398,9 +398,9 @@ class LeftSidebarManager(QWidget):
         self.position_on_screen()
 
     def _create_header(self) -> QWidget:
-        """Crear header con título y contador"""
+        """Crear header con título, contador y botón de colapso"""
         header = QWidget()
-        header.setFixedHeight(DIMENSIONS['header_height'])
+        header.setFixedHeight(DIMENSIONS['header_height'] + 20)  # Aumentar altura para el botón
         header.setStyleSheet(f"""
             QWidget {{
                 background-color: {COLORS['header_background']};
@@ -410,7 +410,7 @@ class LeftSidebarManager(QWidget):
 
         layout = QVBoxLayout(header)
         layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(3)
+        layout.setSpacing(2)
 
         # Label
         title_label = QLabel("📋")
@@ -438,6 +438,33 @@ class LeftSidebarManager(QWidget):
             }}
         """)
         layout.addWidget(self.counter_label)
+
+        # Botón de colapso manual
+        self.collapse_button = QPushButton("◄")
+        self.collapse_button.setFixedSize(50, 20)
+        self.collapse_button.setToolTip("Colapsar barra\n(Solo mostrar borde)")
+        self.collapse_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.collapse_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['button_normal']};
+                color: {COLORS['text_secondary']};
+                border: 1px solid {COLORS['separator']};
+                border-radius: 4px;
+                padding: 2px;
+                font-size: 9pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['button_hover']};
+                color: {COLORS['separator']};
+                border-color: #00ff88;
+            }}
+            QPushButton:pressed {{
+                background-color: {COLORS['button_pressed']};
+            }}
+        """)
+        self.collapse_button.clicked.connect(self._on_collapse_button_clicked)
+        layout.addWidget(self.collapse_button)
 
         return header
 
@@ -682,6 +709,12 @@ class LeftSidebarManager(QWidget):
             items = list(self.all_items.keys())
             for item in items:
                 self.close_item(item)
+
+    def _on_collapse_button_clicked(self):
+        """Manejar click en botón de colapso - colapsar a peek mode inmediatamente"""
+        if self.is_expanded:
+            logger.info("Manual collapse requested via button")
+            self._collapse_to_peek()
 
     def _restart_auto_hide_timer(self):
         """Reiniciar timer de auto-hide"""
