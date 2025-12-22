@@ -727,10 +727,10 @@ class ProjectAreaViewerPanel(QWidget):
     def _search_in_layout(self, layout, search_text: str):
         """
         Buscar recursivamente en un layout
-
+        
         Args:
             layout: Layout donde buscar
-            search_text: Texto a buscar (en minúsculas)
+            search_text: Texto a buscar
         """
         for i in range(layout.count()):
             item = layout.itemAt(i)
@@ -742,41 +742,48 @@ class ProjectAreaViewerPanel(QWidget):
                 continue
 
             # Si es un ItemGroupWidget, buscar en sus items
-            if hasattr(widget, 'item_widgets'):
-                for item_widget in widget.item_widgets:
-                    if self._widget_matches_search(item_widget, search_text):
+            if hasattr(widget, 'items'):
+                for item_widget in widget.items:
+                    # Usar el método has_match del widget si existe
+                    if hasattr(item_widget, 'has_match') and item_widget.has_match(search_text):
                         self.search_results.append(item_widget)
+                        # Resaltar texto si el widget lo soporta
+                        if hasattr(item_widget, 'highlight_text'):
+                            item_widget.highlight_text(search_text)
+                    else:
+                        # Asegurar que se limpie si no coincide (por si acaso)
+                        if hasattr(item_widget, 'clear_highlight'):
+                            item_widget.clear_highlight()
 
             # Si tiene layout, buscar recursivamente
             if widget.layout():
                 self._search_in_layout(widget.layout(), search_text)
 
-    def _widget_matches_search(self, widget, search_text: str) -> bool:
-        """
-        Verificar si un widget coincide con el texto de búsqueda
-
-        Args:
-            widget: Widget a verificar
-            search_text: Texto a buscar (en minúsculas)
-
-        Returns:
-            bool: True si coincide, False si no
-        """
-        if not hasattr(widget, 'item_data'):
-            return False
-
-        item_data = widget.item_data
-
-        # Buscar en label y content
-        label = item_data.get('label', '').lower()
-        content = item_data.get('content', '').lower()
-
-        return search_text in label or search_text in content
-
     def _clear_search_highlights(self):
-        """Limpiar resaltado de búsqueda (placeholder)"""
-        # TODO: Implementar resaltado visual cuando se requiera
-        pass
+        """Limpiar resaltado de búsqueda en todos los items"""
+        # Recorrer todo el layout para limpiar
+        self._clear_highlights_recursive(self.content_layout)
+
+    def _clear_highlights_recursive(self, layout):
+        """Helper recursivo para limpiar resaltados"""
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            if not item:
+                continue
+
+            widget = item.widget()
+            if not widget:
+                continue
+
+            # Si es un ItemGroupWidget, limpiar sus items
+            if hasattr(widget, 'items'):
+                for item_widget in widget.items:
+                    if hasattr(item_widget, 'clear_highlight'):
+                        item_widget.clear_highlight()
+
+            # Recursión
+            if widget.layout():
+                self._clear_highlights_recursive(widget.layout())
 
     def _scroll_to_result(self, index: int):
         """
