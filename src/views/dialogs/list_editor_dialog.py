@@ -18,7 +18,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.views.widgets.step_item_widget import StepItemWidget
+from src.views.widgets.project_tag_selector import ProjectTagSelector
 from src.controllers.list_controller import ListController
+from src.core.global_tag_manager import GlobalTagManager
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,11 @@ class ListEditorDialog(QDialog):
         self.step_widgets: List[StepItemWidget] = []
         self.original_items_count = 0  # Para confirmación al eliminar
         self.original_list_name = ""  # Se cargará en load_list_data()
+
+        # Initialize GlobalTagManager from list_controller's db
+        self.global_tag_manager = None
+        if hasattr(list_controller, 'db') and list_controller.db:
+            self.global_tag_manager = GlobalTagManager(list_controller.db)
 
         # Obtener nombre de la lista para el título
         lista = self.list_controller.db.get_lista(lista_id)
@@ -141,6 +148,23 @@ class ListEditorDialog(QDialog):
         category_info_label = QLabel("ℹ️ La categoría no puede cambiarse al editar")
         category_info_label.setStyleSheet("color: #888888; font-size: 10px; font-style: italic;")
         main_layout.addWidget(category_info_label)
+
+        # === TAGS COMUNES (se aplican a todos los pasos) ===
+        tags_label = QLabel("Tags comunes (opcional - se aplican a todos los pasos):")
+        tags_label.setStyleSheet("font-size: 12px; margin-top: 10px;")
+        main_layout.addWidget(tags_label)
+
+        # ProjectTagSelector
+        if self.global_tag_manager:
+            self.tag_selector = ProjectTagSelector(self.global_tag_manager)
+            self.tag_selector.setMinimumHeight(150)
+            main_layout.addWidget(self.tag_selector)
+        else:
+            # Fallback si no hay manager
+            self.tag_selector = None
+            self.common_tags_input = QLineEdit()
+            self.common_tags_input.setPlaceholderText("Ej: python, git, produccion...")
+            main_layout.addWidget(self.common_tags_input)
 
         # === SEPARADOR ===
         separator_label = QLabel("──────── Pasos del Proceso ────────")
@@ -319,6 +343,35 @@ class ListEditorDialog(QDialog):
             self.update_step_numbers()
             self.update_save_button_text()
 
+            # Cargar tags comunes (tags que aparecen en todos los items)
+            if self.tag_selector and items:
+                # Extraer tags de todos los items
+                all_tags_sets = []
+                for item in items:
+                    if 'tags' in item and item['tags']:
+                        # Los tags pueden venir como string separado por comas o como lista
+                        if isinstance(item['tags'], str):
+                            tags = [t.strip() for t in item['tags'].split(',') if t.strip()]
+                        else:
+                            tags = item['tags'] if isinstance(item['tags'], list) else []
+                        all_tags_sets.append(set(tags))
+
+                # Encontrar tags comunes (intersección de todos los sets)
+                if all_tags_sets:
+                    common_tags = set.intersection(*all_tags_sets)
+
+                    # Convertir nombres de tags a IDs
+                    tag_ids = []
+                    for tag_name in common_tags:
+                        tag = self.global_tag_manager.get_tag_by_name(tag_name)
+                        if tag:
+                            tag_ids.append(tag.id)
+
+                    # Cargar en el selector
+                    if tag_ids:
+                        self.tag_selector.set_selected_tags(tag_ids)
+                        logger.info(f"[LIST_EDITOR] Loaded {len(tag_ids)} common tags")
+
             logger.info(f"[LIST_EDITOR] Loaded {len(items)} items for lista_id: {self.lista_id}")
 
         except Exception as e:
@@ -479,16 +532,51 @@ class ListEditorDialog(QDialog):
 
     def get_steps_data(self) -> List[dict]:
         """
-        Obtiene los datos de todos los pasos
+        Obtiene los datos de todos los pasos y les agrega los tags comunes
+
+        Automáticamente agrega los tags ["lista", "nombre_de_la_lista"] a cada item
 
         Returns:
             Lista de diccionarios con datos de cada paso
         """
+        # Obtener tags comunes del selector
+        common_tags_list = []
+
+        if self.tag_selector:
+            # Usar ProjectTagSelector
+            selected_ids = self.tag_selector.get_selected_tags()
+            for tag_id in selected_ids:
+                tag = self.global_tag_manager.get_tag(tag_id)
+                if tag:
+                    common_tags_list.append(tag.name)
+        elif hasattr(self, 'common_tags_input'):
+            # Fallback: usar campo de texto
+            common_tags_str = self.common_tags_input.text().strip()
+            if common_tags_str:
+                # Parsear tags separados por coma
+                common_tags_list = [tag.strip() for tag in common_tags_str.split(',') if tag.strip()]
+
+        # Obtener nombre de la lista para agregar como tag
+        list_name = self.name_input.text().strip()
+
+        # Crear lista de tags automáticos: ["lista", "nombre_de_la_lista"]
+        auto_tags = ["lista"]
+        if list_name:
+            auto_tags.append(list_name)
+
+        # Combinar tags automáticos con tags comunes (sin duplicados)
+        final_tags = auto_tags.copy()
+        for tag in common_tags_list:
+            if tag not in final_tags:
+                final_tags.append(tag)
+
         steps_data = []
         for widget in self.step_widgets:
             data = widget.get_step_data()
             # Solo incluir pasos que tengan al menos label
             if data['label']:
+                # Agregar lista de tags a este paso (como lista, no string)
+                data['tags'] = final_tags.copy()
                 steps_data.append(data)
         return steps_data
 
