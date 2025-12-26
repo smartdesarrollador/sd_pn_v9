@@ -166,6 +166,27 @@ class BulkItemCreatorDialog(QWidget):
 
         layout.addStretch()
 
+        # Botón Actualizar (refrescar datos de BD)
+        refresh_btn = QPushButton("🔄")
+        refresh_btn.setFixedSize(20, 20)
+        refresh_btn.setToolTip("Actualizar datos desde la base de datos")
+        refresh_btn.clicked.connect(self._on_refresh_clicked)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: #fff;
+                border: none;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #388E3C;
+            }
+        """)
+        layout.addWidget(refresh_btn)
+
         # Info label
         self.info_label = QLabel("0 tabs")
         self.info_label.setStyleSheet("color: #888; font-size: 9px;")
@@ -1374,6 +1395,50 @@ class BulkItemCreatorDialog(QWidget):
             logger.debug(f"Categorías recargadas en {self.tab_widget.count()} tabs")
         except Exception as e:
             logger.error(f"Error recargando categorías: {e}")
+
+    def _on_refresh_clicked(self):
+        """
+        Callback del botón Actualizar
+
+        Recarga todos los datos desde la base de datos:
+        - Proyectos
+        - Áreas
+        - Categorías
+        """
+        try:
+            logger.info("Actualizando datos desde la base de datos...")
+
+            # Invalidar caché de categorías
+            self.config._categories_cache = None
+
+            # Recargar todos los datos en todos los tabs
+            self._reload_projects_in_all_tabs()
+            self._reload_areas_in_all_tabs()
+            self._reload_categories_in_all_tabs()
+
+            # Feedback visual temporal (cambiar ícono brevemente)
+            current_tab = self._get_current_tab_content()
+            if current_tab:
+                # Mostrar mensaje breve en el info label
+                original_text = self.info_label.text()
+                self.info_label.setText("✓ Datos actualizados")
+                self.info_label.setStyleSheet("color: #4CAF50; font-size: 9px; font-weight: bold;")
+
+                # Restaurar después de 2 segundos
+                QTimer.singleShot(2000, lambda: self._restore_info_label(original_text))
+
+            logger.info("Datos actualizados correctamente")
+
+        except Exception as e:
+            logger.error(f"Error actualizando datos: {e}")
+            self.info_label.setText("❌ Error al actualizar")
+            self.info_label.setStyleSheet("color: #d32f2f; font-size: 9px;")
+            QTimer.singleShot(3000, lambda: self._restore_info_label(f"{self.tab_widget.count()} tabs"))
+
+    def _restore_info_label(self, original_text: str):
+        """Restaura el info_label a su estado original"""
+        self.info_label.setText(original_text)
+        self.info_label.setStyleSheet("color: #888; font-size: 9px;")
 
     # === DRAGGING ===
 
