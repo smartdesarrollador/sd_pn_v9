@@ -9,8 +9,9 @@ Versión: 1.1
 """
 
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from ...styles.full_view_styles import FullViewStyles
+import pyperclip
 
 
 class GroupHeaderWidget(QFrame):
@@ -41,6 +42,7 @@ class GroupHeaderWidget(QFrame):
         self.group_name = ""
         self.group_type = "category"  # 'category', 'list', 'tag'
         self.create_list_btn = None  # Solo para listas
+        self.copy_list_name_btn = None  # Solo para listas
 
         self.init_ui()
         self.apply_styles()
@@ -74,16 +76,21 @@ class GroupHeaderWidget(QFrame):
         self.group_name = name
         self.group_type = group_type
 
-        # Remover botón anterior si existe
+        # Remover botones anteriores si existen
         if self.create_list_btn:
             self.create_list_btn.deleteLater()
             self.create_list_btn = None
+        if self.copy_list_name_btn:
+            self.copy_list_name_btn.deleteLater()
+            self.copy_list_name_btn = None
 
         # Formato según tipo
         if group_type == "category":
             self.title_label.setText(f"[ Categoría: {name} ]")
         elif group_type == "list":
             self.title_label.setText(f"[ Lista: {name} ]")
+            # Agregar botón de copiar nombre de lista
+            self._add_copy_list_name_button()
             # Agregar botón "+" para crear lista
             self._add_create_list_button()
         elif group_type == "tag":
@@ -121,6 +128,95 @@ class GroupHeaderWidget(QFrame):
 
         # Insertar botón antes del spacer
         self.layout.insertWidget(self.layout.count() - 1, self.create_list_btn)
+
+    def _add_copy_list_name_button(self):
+        """Agregar botón de copiar nombre de lista (solo cuando es tipo 'list')"""
+        if self.copy_list_name_btn:
+            return  # Ya existe
+
+        self.copy_list_name_btn = QPushButton("📋")
+        self.copy_list_name_btn.setFixedSize(24, 24)
+        self.copy_list_name_btn.setToolTip("Copiar nombre de lista al portapapeles")
+        self.copy_list_name_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.copy_list_name_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 1px solid #555;
+                border-radius: 4px;
+                font-size: 12px;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+                border-color: #666;
+            }
+            QPushButton:pressed {
+                background-color: #2d2d2d;
+            }
+        """)
+        self.copy_list_name_btn.clicked.connect(self._copy_list_name_to_clipboard)
+
+        # Insertar botón antes del spacer
+        self.layout.insertWidget(self.layout.count() - 1, self.copy_list_name_btn)
+
+    def _copy_list_name_to_clipboard(self):
+        """Copiar nombre de lista al portapapeles con feedback visual"""
+        try:
+            # Copiar al portapapeles
+            pyperclip.copy(self.group_name)
+
+            # Feedback visual: cambiar a verde temporalmente
+            success_style = """
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: #ffffff;
+                    border: 1px solid #45a049;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    padding: 2px;
+                }
+                QPushButton:hover {
+                    background-color: #45a049;
+                    border-color: #3d8b40;
+                }
+                QPushButton:pressed {
+                    background-color: #3d8b40;
+                }
+            """
+
+            # Cambiar a verde con checkmark
+            self.copy_list_name_btn.setStyleSheet(success_style)
+            self.copy_list_name_btn.setText("✓")
+
+            # Restaurar después de 1.5 segundos
+            QTimer.singleShot(1500, self._restore_copy_button_style)
+
+        except Exception as e:
+            print(f"Error al copiar nombre de lista: {e}")
+
+    def _restore_copy_button_style(self):
+        """Restaurar estilo original del botón de copiar"""
+        original_style = """
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 1px solid #555;
+                border-radius: 4px;
+                font-size: 12px;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+                border-color: #666;
+            }
+            QPushButton:pressed {
+                background-color: #2d2d2d;
+            }
+        """
+        if self.copy_list_name_btn:
+            self.copy_list_name_btn.setStyleSheet(original_style)
+            self.copy_list_name_btn.setText("📋")
 
     def get_group_name(self) -> str:
         """
