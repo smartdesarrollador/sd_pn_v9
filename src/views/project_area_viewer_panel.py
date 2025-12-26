@@ -769,11 +769,15 @@ class ProjectAreaViewerPanel(QWidget):
     def _search_in_layout(self, layout, search_text: str):
         """
         Buscar recursivamente en un layout
-        
+
         Args:
             layout: Layout donde buscar
             search_text: Texto a buscar
         """
+        # Validar que el layout no sea None
+        if layout is None:
+            return
+
         for i in range(layout.count()):
             item = layout.itemAt(i)
             if not item:
@@ -798,8 +802,13 @@ class ProjectAreaViewerPanel(QWidget):
                             item_widget.clear_highlight()
 
             # Si tiene layout, buscar recursivamente
-            if widget.layout():
-                self._search_in_layout(widget.layout(), search_text)
+            # Verificar si layout es un método o un atributo
+            try:
+                child_layout = widget.layout() if callable(widget.layout) else widget.layout
+                if child_layout:
+                    self._search_in_layout(child_layout, search_text)
+            except (AttributeError, TypeError):
+                pass  # Widget no tiene layout o no es accesible
 
     def _clear_search_highlights(self):
         """Limpiar resaltado de búsqueda en todos los items"""
@@ -808,6 +817,10 @@ class ProjectAreaViewerPanel(QWidget):
 
     def _clear_highlights_recursive(self, layout):
         """Helper recursivo para limpiar resaltados"""
+        # Validar que el layout no sea None
+        if layout is None:
+            return
+
         for i in range(layout.count()):
             item = layout.itemAt(i)
             if not item:
@@ -824,8 +837,13 @@ class ProjectAreaViewerPanel(QWidget):
                         item_widget.clear_highlight()
 
             # Recursión
-            if widget.layout():
-                self._clear_highlights_recursive(widget.layout())
+            # Verificar si layout es un método o un atributo
+            try:
+                child_layout = widget.layout() if callable(widget.layout) else widget.layout
+                if child_layout:
+                    self._clear_highlights_recursive(child_layout)
+            except (AttributeError, TypeError):
+                pass  # Widget no tiene layout o no es accesible
 
     def _scroll_to_result(self, index: int):
         """

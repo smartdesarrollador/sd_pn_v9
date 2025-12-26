@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QPushButto
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QCursor
 from abc import abstractmethod
-from ..common.copy_button import CopyButton
 import pyperclip
 import re
 import logging
@@ -77,10 +76,42 @@ class BaseItemWidget(QFrame):
         from PyQt6.QtWidgets import QSizePolicy
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 
-        # Layout principal (horizontal)
-        self.main_layout = QHBoxLayout(self)
-        self.main_layout.setContentsMargins(8, 6, 8, 6)
-        self.main_layout.setSpacing(6)
+        # ✨ NUEVO: Layout principal VERTICAL
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
+        # ✨ NUEVO: Barra de acciones superior (esquina derecha)
+        action_bar = QWidget()
+        action_bar.setFixedHeight(32)
+        action_bar.setStyleSheet("background-color: transparent;")
+        action_bar_layout = QHBoxLayout(action_bar)
+        action_bar_layout.setContentsMargins(8, 4, 8, 4)
+        action_bar_layout.setSpacing(6)
+
+        # Spacer para empujar botones a la derecha
+        action_bar_layout.addStretch()
+
+        # Contenedor de botones de acción (derecha)
+        self.buttons_layout = QHBoxLayout()
+        self.buttons_layout.setSpacing(6)
+        self.buttons_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Crear botones de acción (copiar e info)
+        self._create_action_buttons()
+        self._create_common_buttons()
+
+        action_bar_layout.addLayout(self.buttons_layout)
+
+        # Agregar barra de acciones al layout principal
+        self.main_layout.addWidget(action_bar)
+
+        # ✨ MODIFICADO: Área de contenido (debajo de la barra)
+        content_container_widget = QWidget()
+        content_container_widget.setStyleSheet("background: transparent;")
+        content_container_layout = QVBoxLayout(content_container_widget)
+        content_container_layout.setContentsMargins(8, 0, 8, 6)
+        content_container_layout.setSpacing(0)
 
         # Scroll area para el contenido (permite scroll vertical interno)
         self.content_scroll = QScrollArea()
@@ -123,21 +154,11 @@ class BaseItemWidget(QFrame):
         # Establecer el contenedor en el scroll area
         self.content_scroll.setWidget(self.content_container)
 
-        # Agregar scroll area al layout principal
-        self.main_layout.addWidget(self.content_scroll, 1)  # stretch=1 para ocupar espacio disponible
+        # Agregar scroll area al contenedor de contenido
+        content_container_layout.addWidget(self.content_scroll)
 
-        # Contenedor de botones de acción (derecha)
-        self.buttons_layout = QHBoxLayout()
-        self.buttons_layout.setSpacing(4)
-        self.buttons_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Crear botones de acción (llamar método que puede ser sobrescrito)
-        self._create_action_buttons()
-
-        # Agregar botones comunes (editar, info, más)
-        self._create_common_buttons()
-
-        self.main_layout.addLayout(self.buttons_layout, 0)
+        # Agregar contenedor de contenido al layout principal
+        self.main_layout.addWidget(content_container_widget, 1)
 
         # Cursor
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -374,66 +395,58 @@ class BaseItemWidget(QFrame):
         """
         Crear botones de acción específicos del tipo de item
 
-        Este método puede ser sobrescrito por las subclases para
-        agregar botones específicos según el tipo de item.
-
-        Por defecto, solo agrega el botón de copiar.
+        ✨ NUEVO DISEÑO: Botones con fondo gris oscuro y azul
         """
-        # Botón de copiar (siempre presente)
-        self.copy_button = CopyButton()
-        self.copy_button.copy_clicked.connect(self.copy_to_clipboard)
-        self.copy_button.setFixedSize(28, 28)
+        # Botón de copiar (gris oscuro)
+        self.copy_button = QPushButton("📋")
+        self.copy_button.setFixedSize(32, 24)
+        self.copy_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.copy_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 1px solid #555;
+                border-radius: 4px;
+                font-size: 14px;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+                border-color: #666;
+            }
+            QPushButton:pressed {
+                background-color: #2d2d2d;
+            }
+        """)
         self.copy_button.setToolTip("Copiar contenido")
+        self.copy_button.clicked.connect(self.copy_to_clipboard)
         self.buttons_layout.addWidget(self.copy_button)
 
     def _create_common_buttons(self):
         """
         Crear botones comunes a todos los tipos de items
 
-        Botones:
-        - Revelar/Ocultar (solo para items sensibles)
-        - Detalles (info)
+        ✨ NUEVO DISEÑO: Solo botón de info (azul)
         """
-        # Botón revelar/ocultar (solo para items sensibles)
-        if self.item_data.get('is_sensitive', False):
-            self.reveal_button = QPushButton("👁")
-            self.reveal_button.setFixedSize(28, 28)
-            self.reveal_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            self.reveal_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #cc0000;
-                    color: #ffffff;
-                    border: none;
-                    border-radius: 3px;
-                    font-size: 12pt;
-                    padding: 0px;
-                }
-                QPushButton:hover {
-                    background-color: #9e0000;
-                }
-                QPushButton:pressed {
-                    background-color: #780000;
-                }
-            """)
-            self.reveal_button.setToolTip("Revelar/Ocultar contenido sensible")
-            self.reveal_button.clicked.connect(self._toggle_reveal)
-            self.buttons_layout.addWidget(self.reveal_button)
-            self._is_revealed = False
-
-        # Botón detalles (info)
+        # Botón detalles/info (azul)
         self.info_btn = QPushButton("ℹ️")
-        self.info_btn.setFixedSize(28, 28)
+        self.info_btn.setFixedSize(32, 24)
         self.info_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.info_btn.setStyleSheet("""
             QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 12pt;
-                padding: 0px;
+                background-color: #2196F3;
+                color: #ffffff;
+                border: 1px solid #1976D2;
+                border-radius: 4px;
+                font-size: 14px;
+                padding: 2px;
             }
             QPushButton:hover {
-                background-color: #3e3e42;
-                border-radius: 3px;
+                background-color: #1976D2;
+                border-color: #0d47a1;
+            }
+            QPushButton:pressed {
+                background-color: #0d47a1;
             }
         """)
         self.info_btn.setToolTip("Ver detalles del item")
