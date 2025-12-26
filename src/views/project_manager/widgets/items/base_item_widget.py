@@ -178,7 +178,7 @@ class BaseItemWidget(QFrame):
         Copiar contenido del item al portapapeles
 
         Copia el campo 'content' del item_data y emite
-        la señal item_copied.
+        la señal item_copied. Muestra feedback visual verde en el botón.
         """
         # Si el item es sensible, verificar contraseña maestra
         if self.item_data.get('is_sensitive', False):
@@ -200,6 +200,10 @@ class BaseItemWidget(QFrame):
             try:
                 pyperclip.copy(content)
                 self.item_copied.emit(self.item_data)
+
+                # Feedback visual: cambiar botón a verde temporalmente
+                self._show_copy_success_feedback()
+
             except Exception as e:
                 print(f"Error al copiar al portapapeles: {e}")
 
@@ -1019,3 +1023,64 @@ class BaseItemWidget(QFrame):
 
         except Exception as e:
             logger.error(f"❌ Error moviendo item hacia abajo: {e}", exc_info=True)
+
+    def _show_copy_success_feedback(self):
+        """
+        Mostrar feedback visual verde cuando se copia exitosamente
+
+        Cambia el botón de copiar a verde por 1.5 segundos.
+        """
+        # Guardar estilo original
+        original_style = """
+            QPushButton {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 1px solid #555;
+                border-radius: 4px;
+                font-size: 14px;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
+                border-color: #666;
+            }
+            QPushButton:pressed {
+                background-color: #2d2d2d;
+            }
+        """
+
+        # Estilo de éxito (verde)
+        success_style = """
+            QPushButton {
+                background-color: #4CAF50;
+                color: #ffffff;
+                border: 1px solid #45a049;
+                border-radius: 4px;
+                font-size: 14px;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+                border-color: #3d8b40;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """
+
+        # Cambiar a verde
+        self.copy_button.setStyleSheet(success_style)
+        self.copy_button.setText("✓")  # Cambiar icono temporalmente
+
+        # Restaurar después de 1.5 segundos
+        QTimer.singleShot(1500, lambda: self._restore_copy_button_style(original_style))
+
+    def _restore_copy_button_style(self, original_style: str):
+        """
+        Restaurar estilo original del botón de copiar
+
+        Args:
+            original_style: Estilo CSS original del botón
+        """
+        self.copy_button.setStyleSheet(original_style)
+        self.copy_button.setText("📋")  # Restaurar icono original
