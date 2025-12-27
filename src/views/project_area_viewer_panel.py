@@ -21,6 +21,7 @@ Versión: 1.0
 Fecha: 2025-12-21
 """
 
+from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QScrollArea, QApplication, QInputDialog, QMessageBox, QLineEdit
@@ -1276,6 +1277,10 @@ class ProjectAreaViewerPanel(QWidget):
         tag_container_layout.setContentsMargins(0, 0, 0, 0)
         tag_container_layout.setSpacing(8)
 
+        # Capturar tag_name y tag_id del tag actual para pasar al callback de crear lista
+        tag_name = tag_data['tag_name']
+        tag_id = tag_data.get('tag_id', None)  # tag_id puede no estar disponible
+
         # Grupos de items
         for group in tag_data.get('groups', []):
             group_widget = ItemGroupWidget(
@@ -1284,7 +1289,9 @@ class ProjectAreaViewerPanel(QWidget):
             )
 
             # Conectar señales del grupo (✨ NUEVO)
-            group_widget.create_list_clicked.connect(self._on_create_list)
+            # Pasar tag_name y tag_id al callback usando lambda
+            create_list_callback = lambda checked=False, tn=tag_name, tid=tag_id: self._on_create_list(tn, tid)
+            group_widget.create_list_clicked.connect(create_list_callback)
 
             # Si es lista, conectar señal de agregar item
             if group['type'] == 'list':
@@ -1518,14 +1525,143 @@ class ProjectAreaViewerPanel(QWidget):
                 f"No se pudo crear el tag:\n{str(e)}"
             )
 
-    def _on_create_list(self):
-        """Callback para crear nueva lista (TODO: implementar con contexto completo)"""
-        QMessageBox.information(
-            self,
-            "En desarrollo",
-            "La creación de listas requiere tags seleccionados.\n"
-            "Por favor use el Creador Masivo para crear listas completas."
-        )
+    def _on_create_list(self, tag_name: str = None, tag_id: int = None):
+        """
+        Callback para crear nueva lista
+
+        Crea una lista y automáticamente:
+        1. Crea un tag de item con el mismo nombre (si no existe)
+        2. Asocia la lista al tag de proyecto/área actual
+
+        Args:
+            tag_name: Nombre del tag de proyecto/área (capturado de lambda)
+            tag_id: ID del tag de proyecto/área (capturado de lambda)
+        """
+        if not self.db:
+            QMessageBox.warning(self, "Error", "No hay conexión a la base de datos")
+            return
+
+        # Verificar que hay proyecto o área seleccionado
+        if not self.current_project_id and not self.current_area_id:
+            QMessageBox.warning(
+                self,
+                "Proyecto/Área Requerido",
+                "Debe seleccionar un Proyecto o Área antes de crear una lista."
+            )
+            return
+
+        # Usar categoría "sin categoria" (primer registro, ID = 1)
+        try:
+            category_id = 1  # Primera categoría "sin categoria"
+
+            # Pedir nombre de la lista
+            name, ok = QInputDialog.getText(
+                self,
+                "Crear Lista",
+                "Nombre de la lista:",
+                QLineEdit.EchoMode.Normal
+            )
+
+            if not ok or not name.strip():
+                return
+
+            name = name.strip()
+
+            # Crear lista en BD
+            lista_id = self.db.create_lista(
+                category_id=category_id,
+                name=name,
+                description=f"Lista creada desde Visor de Proyectos/Áreas"
+            )
+
+            logger.info(f"✅ Lista creada: ID={lista_id}, nombre='{name}', category={category_id}")
+
+            # ✨ NUEVO: Crear tag de item con el mismo nombre de la lista
+            try:
+                # get_or_create_tag ya normaliza el nombre (lowercase, strip)
+                tag_item_id = self.db.get_or_create_tag(name)
+                logger.info(f"✅ Tag de item creado/obtenido: ID={tag_item_id}, nombre='{name}'")
+            except Exception as e:
+                logger.warning(f"⚠️ No se pudo crear tag de item: {e}")
+                # No es crítico, continuar
+
+            # Asociar lista al tag de proyecto/área si corresponde
+            if tag_name and (self.current_project_id or self.current_area_id):
+                try:
+                    # Si no tenemos tag_id, buscarlo por nombre
+                    if not tag_id:
+                        if self.current_project_id:
+                            # Buscar tag de proyecto por nombre
+                            conn = self.db.connect()
+                            cursor = conn.execute(
+                                "SELECT id FROM project_element_tags WHERE name = ?",
+                                (tag_name,)
+                            )
+                            row = cursor.fetchone()
+                            if row:
+                                tag_id = row['id']
+                                logger.debug(f"Tag de proyecto '{tag_name}' encontrado: ID={tag_id}")
+
+                        elif self.current_area_id:
+                            # Buscar tag de área por nombre
+                            conn = self.db.connect()
+                            cursor = conn.execute(
+                                "SELECT id FROM area_element_tags WHERE name = ?",
+                                (tag_name,)
+                            )
+                            row = cursor.fetchone()
+                            if row:
+                                tag_id = row['id']
+                                logger.debug(f"Tag de área '{tag_name}' encontrado: ID={tag_id}")
+
+                    # Crear relación y asociar al tag si tenemos tag_id
+                    if tag_id:
+                        if self.current_project_id:
+                            # Crear relación de proyecto para la lista
+                            relation_id = self._create_project_relation_for_list(lista_id, category_id)
+
+                            if relation_id:
+                                # Asociar al tag de proyecto
+                                self._associate_to_project_tag(relation_id, tag_id)
+                                logger.info(f"✅ Lista asociada al tag de proyecto '{tag_name}'")
+
+                        elif self.current_area_id:
+                            # Crear relación de área para la lista
+                            relation_id = self._create_area_relation_for_list(lista_id, category_id)
+
+                            if relation_id:
+                                # Asociar al tag de área
+                                self._associate_to_area_tag(relation_id, tag_id)
+                                logger.info(f"✅ Lista asociada al tag de área '{tag_name}'")
+                    else:
+                        logger.warning(f"⚠️ No se encontró tag '{tag_name}' - lista no asociada")
+
+                except Exception as e:
+                    logger.warning(f"⚠️ No se pudo asociar lista al tag: {e}")
+                    # No es crítico, continuar
+
+            # Recargar vista completa
+            if self.current_project_id:
+                self.load_project(self.current_project_id)
+            elif self.current_area_id:
+                self.load_area(self.current_area_id)
+
+            QMessageBox.information(
+                self,
+                "Lista Creada",
+                f"Lista '{name}' creada exitosamente.\n"
+                f"Tag de item '{name}' creado/actualizado automáticamente."
+            )
+
+        except ValueError as e:
+            QMessageBox.warning(self, "Error de Validación", str(e))
+        except Exception as e:
+            logger.error(f"Error creando lista: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"No se pudo crear la lista:\n{str(e)}"
+            )
 
     def _on_add_item_from_group(self, lista_name: str, group_widget):
         """
@@ -1624,7 +1760,11 @@ class ProjectAreaViewerPanel(QWidget):
 
             category_id = lista['category_id']
 
+            # ✨ NUEVO: Obtener nombre de la lista para crear tag automático
+            lista_name = lista['name']
+
             # Crear item en BD con la lista
+            # El tag con el nombre de la lista se agregará automáticamente después
             item_id = self.db.add_item(
                 category_id=category_id,
                 label=item_data['label'],
@@ -1632,10 +1772,18 @@ class ProjectAreaViewerPanel(QWidget):
                 item_type=item_data['type'],
                 is_sensitive=item_data['is_sensitive'],
                 list_id=self.current_lista_id,
-                tags=[]  # Sin tags adicionales por ahora
+                tags=[]  # Tags se agregarán después
             )
 
             logger.info(f"✅ Item creado: ID={item_id}, label='{item_data['label']}' en lista {self.current_lista_id}")
+
+            # ✨ NUEVO: Agregar automáticamente el tag de item con el mismo nombre de la lista
+            try:
+                self.db.add_tag_to_item(item_id, lista_name)
+                logger.info(f"✅ Tag '{lista_name}' agregado automáticamente al item {item_id}")
+            except Exception as e:
+                logger.warning(f"⚠️ No se pudo agregar tag automático al item: {e}")
+                # No es crítico, continuar
 
             # Recargar vista completa
             if self.current_project_id:
@@ -1697,6 +1845,98 @@ class ProjectAreaViewerPanel(QWidget):
 
         except Exception as e:
             logger.error(f"Error recargando tags: {e}")
+
+    # === MÉTODOS AUXILIARES PARA ASOCIACIÓN DE LISTAS A TAGS ===
+
+    def _create_project_relation_for_list(self, lista_id: int, category_id: int) -> Optional[int]:
+        """
+        Crea una relación de proyecto para una lista
+
+        Args:
+            lista_id: ID de la lista
+            category_id: ID de la categoría
+
+        Returns:
+            ID de la relación creada o None si falló
+        """
+        try:
+            relation_id = self.db.add_project_relation(
+                project_id=self.current_project_id,
+                entity_type='list',
+                entity_id=lista_id,
+                description=f"Lista creada desde Visor",
+                order_index=0
+            )
+            logger.info(f"✅ Relación de proyecto creada: ID={relation_id} para lista {lista_id}")
+            return relation_id
+        except Exception as e:
+            logger.error(f"Error creando relación de proyecto: {e}")
+            return None
+
+    def _associate_to_project_tag(self, relation_id: int, tag_id: int) -> bool:
+        """
+        Asocia una relación de proyecto a un tag
+
+        Args:
+            relation_id: ID de la relación
+            tag_id: ID del tag de proyecto
+
+        Returns:
+            True si se asoció correctamente
+        """
+        try:
+            success = self.db.add_tag_to_project_relation(relation_id, tag_id)
+            if success:
+                logger.info(f"✅ Relación {relation_id} asociada al tag de proyecto {tag_id}")
+            return success
+        except Exception as e:
+            logger.error(f"Error asociando relación a tag de proyecto: {e}")
+            return False
+
+    def _create_area_relation_for_list(self, lista_id: int, category_id: int) -> Optional[int]:
+        """
+        Crea una relación de área para una lista
+
+        Args:
+            lista_id: ID de la lista
+            category_id: ID de la categoría
+
+        Returns:
+            ID de la relación creada o None si falló
+        """
+        try:
+            relation_id = self.db.add_area_relation(
+                area_id=self.current_area_id,
+                entity_type='list',
+                entity_id=lista_id,
+                description=f"Lista creada desde Visor",
+                order_index=0
+            )
+            logger.info(f"✅ Relación de área creada: ID={relation_id} para lista {lista_id}")
+            return relation_id
+        except Exception as e:
+            logger.error(f"Error creando relación de área: {e}")
+            return None
+
+    def _associate_to_area_tag(self, relation_id: int, tag_id: int) -> bool:
+        """
+        Asocia una relación de área a un tag
+
+        Args:
+            relation_id: ID de la relación
+            tag_id: ID del tag de área
+
+        Returns:
+            True si se asoció correctamente
+        """
+        try:
+            success = self.db.assign_tag_to_area_relation(relation_id, tag_id)
+            if success:
+                logger.info(f"✅ Relación {relation_id} asociada al tag de área {tag_id}")
+            return success
+        except Exception as e:
+            logger.error(f"Error asociando relación a tag de área: {e}")
+            return False
 
 
 # === TEST ===
