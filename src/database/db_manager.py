@@ -2231,6 +2231,23 @@ class DBManager:
         # Usar created_at personalizado si se proporciona, de lo contrario CURRENT_TIMESTAMP
         created_at_value = created_at if created_at else None
 
+        # ✨ AUTO-CALCULAR orden_lista si el item pertenece a una lista
+        if list_id is not None and orden_lista == 0:
+            # Obtener el máximo orden_lista actual en esta lista
+            query_max_order = """
+                SELECT COALESCE(MAX(CAST(orden_lista AS INTEGER)), -1) as max_order
+                FROM items
+                WHERE list_id = ?
+            """
+            result = self.execute_query(query_max_order, (list_id,))
+            if result:
+                max_order = result[0]['max_order']
+                orden_lista = max_order + 1
+                logger.debug(f"Auto-asignado orden_lista={orden_lista} para item en lista {list_id}")
+            else:
+                orden_lista = 0
+                logger.debug(f"Primera vez en lista {list_id}, usando orden_lista=0")
+
         query = """
             INSERT INTO items
             (category_id, label, content, type, icon, is_sensitive, is_favorite, favorite_order,
