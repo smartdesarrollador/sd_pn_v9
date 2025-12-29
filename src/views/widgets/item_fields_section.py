@@ -68,14 +68,6 @@ class ItemFieldsSection(QWidget):
 
         header_layout.addStretch()
 
-        # Botón: Item Especial
-        self.add_special_btn = QPushButton("⚙️ Item Especial")
-        self.add_special_btn.setFixedHeight(35)
-        self.add_special_btn.setMinimumWidth(140)
-        self.add_special_btn.setToolTip("Agregar item especial con label separado y checkbox sensible")
-        self.add_special_btn.setProperty("special_button", True)
-        header_layout.addWidget(self.add_special_btn)
-
         layout.addLayout(header_layout)
 
         # Separador
@@ -89,6 +81,20 @@ class ItemFieldsSection(QWidget):
         self.items_layout.setContentsMargins(0, 0, 0, 0)
         self.items_layout.setSpacing(10)
         layout.addLayout(self.items_layout)
+
+        # Botón: Item Especial (debajo de los items)
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 10, 0, 0)
+        button_layout.addStretch()
+
+        self.add_special_btn = QPushButton("⚙️ Item Especial")
+        self.add_special_btn.setFixedHeight(35)
+        self.add_special_btn.setMinimumWidth(140)
+        self.add_special_btn.setToolTip("Agregar item especial con label separado y checkbox sensible")
+        self.add_special_btn.setProperty("special_button", True)
+        button_layout.addWidget(self.add_special_btn)
+
+        layout.addLayout(button_layout)
 
     def _apply_styles(self):
         """Aplica estilos CSS al widget"""
