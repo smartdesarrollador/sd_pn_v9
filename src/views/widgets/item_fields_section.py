@@ -2,9 +2,9 @@
 Widget de sección de campos de items para el Creador Masivo - VERSIÓN 2.0
 
 Características:
-- Dos botones de creación: Item Simple y Item Especial
+- Solo Item Especial (con label separado + checkbox sensible)
 - Soporte para ordenamiento de items (flechas arriba/abajo)
-- Gestión dinámica de items (mínimo 1)
+- Gestión dinámica de items
 - Validación de todos los items
 - Toggle de flechas con checkbox "Crear como lista"
 
@@ -28,9 +28,8 @@ class ItemFieldsSection(QWidget):
     """
     Sección de campos de items para el Creador Masivo v2.0
 
-    Permite agregar/eliminar múltiples items dinámicamente con 2 modos:
-    - Items simples (compactos)
-    - Items especiales (con label separado + checkbox sensible)
+    Permite agregar/eliminar múltiples items dinámicamente.
+    Solo soporta Items Especiales (con label separado + checkbox sensible).
 
     Señales:
         data_changed: Emitida cuando cambian los datos de items
@@ -48,9 +47,6 @@ class ItemFieldsSection(QWidget):
         self._setup_ui()
         self._apply_styles()
         self._connect_signals()
-
-        # Agregar primer item simple por defecto
-        self.add_simple_item()
 
     def _setup_ui(self):
         """Configura la interfaz del widget"""
@@ -72,15 +68,7 @@ class ItemFieldsSection(QWidget):
 
         header_layout.addStretch()
 
-        # Botón 1: Item Simple
-        self.add_simple_btn = QPushButton("+ Agregar Item")
-        self.add_simple_btn.setFixedHeight(35)
-        self.add_simple_btn.setMinimumWidth(130)
-        self.add_simple_btn.setToolTip("Agregar item simple (compacto)")
-        self.add_simple_btn.setProperty("simple_button", True)
-        header_layout.addWidget(self.add_simple_btn)
-
-        # Botón 2: Item Especial
+        # Botón: Item Especial
         self.add_special_btn = QPushButton("⚙️ Item Especial")
         self.add_special_btn.setFixedHeight(35)
         self.add_special_btn.setMinimumWidth(140)
@@ -105,21 +93,6 @@ class ItemFieldsSection(QWidget):
     def _apply_styles(self):
         """Aplica estilos CSS al widget"""
         self.setStyleSheet("""
-            QPushButton[simple_button="true"] {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-weight: bold;
-                font-size: 12px;
-                padding: 8px 16px;
-            }
-            QPushButton[simple_button="true"]:hover {
-                background-color: #1976D2;
-            }
-            QPushButton[simple_button="true"]:pressed {
-                background-color: #0D47A1;
-            }
             QPushButton[special_button="true"] {
                 background-color: #ff9800;
                 color: #000;
@@ -142,7 +115,6 @@ class ItemFieldsSection(QWidget):
 
     def _connect_signals(self):
         """Conecta señales internas"""
-        self.add_simple_btn.clicked.connect(lambda: self.add_simple_item())
         self.add_special_btn.clicked.connect(lambda: self.add_special_item())
 
     # === AGREGAR ITEMS ===
@@ -224,11 +196,6 @@ class ItemFieldsSection(QWidget):
         Args:
             widget: Widget a eliminar
         """
-        # No permitir eliminar si solo hay 1 item
-        if len(self.item_widgets) <= 1:
-            logger.warning("No se puede eliminar el último item")
-            return
-
         # Eliminar de lista y layout
         if widget in self.item_widgets:
             self.item_widgets.remove(widget)
@@ -382,10 +349,7 @@ class ItemFieldsSection(QWidget):
         self.item_widgets.clear()
 
         # Agregar items desde datos
-        if not items_data:
-            # Agregar al menos 1 item simple vacío
-            self.add_simple_item()
-        else:
+        if items_data:
             for item_data in items_data:
                 if item_data.is_special_mode:
                     # Crear item especial
@@ -402,19 +366,19 @@ class ItemFieldsSection(QWidget):
                         item_type=item_data.item_type
                     )
 
+        self._update_count()
+
     # === LIMPIEZA ===
 
     def clear_all_items(self):
-        """Limpia todos los items (deja solo 1 vacío)"""
+        """Limpia todos los items"""
         # Eliminar todos los widgets
         for widget in self.item_widgets[:]:
             self.items_layout.removeWidget(widget)
             widget.deleteLater()
 
         self.item_widgets.clear()
-
-        # Agregar 1 item simple vacío
-        self.add_simple_item()
+        self._update_count()
 
         logger.debug("Todos los items limpiados")
 

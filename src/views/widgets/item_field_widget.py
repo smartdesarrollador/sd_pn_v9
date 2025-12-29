@@ -158,7 +158,6 @@ class ItemFieldWidget(QWidget):
         Configura layout para modo ESPECIAL (expandido)
 
         Layout vertical con:
-        - Header "⚙️ Item Especial"
         - Label input
         - Content input
         - Type combo
@@ -167,24 +166,6 @@ class ItemFieldWidget(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(10)
-
-        # Header
-        header_layout = QHBoxLayout()
-        header_icon = QLabel("⚙️")
-        header_icon.setStyleSheet("font-size: 14pt;")
-        header_layout.addWidget(header_icon)
-
-        header_title = QLabel("Item Especial")
-        header_title.setStyleSheet("font-weight: bold; color: #ff9800; font-size: 11pt;")
-        header_layout.addWidget(header_title)
-        header_layout.addStretch()
-        main_layout.addLayout(header_layout)
-
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("background-color: #ff9800; max-height: 2px;")
-        main_layout.addWidget(separator)
 
         # Label field
         label_label = QLabel("Label:")

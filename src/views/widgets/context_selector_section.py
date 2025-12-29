@@ -246,17 +246,6 @@ class ContextSelectorSection(QWidget):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(12)
 
-        # Título de sección
-        title = QLabel("📋 Contexto")
-        title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        layout.addWidget(title)
-
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("background-color: #444;")
-        layout.addWidget(separator)
-
         # Selector de Proyecto
         self.project_selector = SelectorWithCreate(
             label_text="Proyecto",

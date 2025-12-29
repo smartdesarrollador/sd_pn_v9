@@ -45,23 +45,6 @@ class ListNameSection(QWidget):
         main_layout.setContentsMargins(15, 10, 15, 10)
         main_layout.setSpacing(8)
 
-        # Header
-        header_layout = QHBoxLayout()
-        header_label = QLabel("📝 Lista")
-        header_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        header_label.setStyleSheet("color: #ffffff;")
-        header_layout.addWidget(header_label)
-
-        # Badge obligatorio
-        required_badge = QLabel("*")
-        required_badge.setStyleSheet("color: #FF5252; font-size: 14px; font-weight: bold;")
-        required_badge.setToolTip("Campo obligatorio")
-        header_layout.addWidget(required_badge)
-
-        header_layout.addStretch()
-
-        main_layout.addLayout(header_layout)
-
         # Selector de lista con botón +
         field_layout = QHBoxLayout()
         field_layout.setSpacing(6)
