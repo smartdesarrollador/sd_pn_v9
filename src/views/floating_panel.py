@@ -214,6 +214,15 @@ class FloatingPanel(QWidget, TaskbarMinimizableMixin):
         self.config_button.setVisible(False)  # Hidden by default (only show when pinned)
         self.header_layout.addWidget(self.config_button)
 
+        # Refresh button (always visible)
+        self.refresh_button = QPushButton("🔄")
+        self.refresh_button.setFixedSize(PanelStyles.CLOSE_BUTTON_SIZE, PanelStyles.CLOSE_BUTTON_SIZE)
+        self.refresh_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.refresh_button.setStyleSheet(PanelStyles.get_close_button_style())
+        self.refresh_button.setToolTip("Actualizar panel")
+        self.refresh_button.clicked.connect(self.reload_current_category)
+        self.header_layout.addWidget(self.refresh_button)
+
         # Close button
         close_button = QPushButton("✕")
         close_button.setFixedSize(PanelStyles.CLOSE_BUTTON_SIZE, PanelStyles.CLOSE_BUTTON_SIZE)
@@ -615,7 +624,7 @@ class FloatingPanel(QWidget, TaskbarMinimizableMixin):
     def display_items_and_lists(self, items, lists):
         """Display items and lists in separate sections
 
-        Limits display to maximum 100 items and 100 lists for performance
+        Limits display to maximum 50 items and 100 lists for performance
 
         Args:
             items: List of Item objects (solo items normales, no items de listas)
@@ -633,13 +642,13 @@ class FloatingPanel(QWidget, TaskbarMinimizableMixin):
         self.clear_items()
 
         # Límite de visualización
-        MAX_DISPLAY_ITEMS = 100
+        MAX_DISPLAY_ITEMS = 50
         MAX_DISPLAY_LISTS = 100
 
         # === SECCIÓN DE ITEMS ===
         if items:
             total_items = len(items)
-            items_to_display = items[:MAX_DISPLAY_ITEMS]  # Limitar a 100
+            items_to_display = items[:MAX_DISPLAY_ITEMS]  # Limitar a 50
 
             # Section header con conteo
             if total_items > MAX_DISPLAY_ITEMS:
@@ -660,7 +669,7 @@ class FloatingPanel(QWidget, TaskbarMinimizableMixin):
             """)
             self.items_layout.insertWidget(self.items_layout.count() - 1, items_header)
 
-            # Add items (solo los primeros 100)
+            # Add items (solo los primeros 50)
             for idx, item in enumerate(items_to_display):
                 logger.debug(f"Creating item button {idx+1}/{len(items_to_display)}: {item.label}")
 

@@ -219,6 +219,15 @@ class GlobalSearchPanel(QWidget, TaskbarMinimizableMixin):
         self.config_button.setVisible(False)  # Solo visible cuando está anclado
         self.header_layout.addWidget(self.config_button)
 
+        # Refresh button (always visible)
+        self.refresh_button = QPushButton("🔄")
+        self.refresh_button.setFixedSize(PanelStyles.CLOSE_BUTTON_SIZE, PanelStyles.CLOSE_BUTTON_SIZE)
+        self.refresh_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.refresh_button.setStyleSheet(PanelStyles.get_close_button_style())
+        self.refresh_button.setToolTip("Actualizar búsqueda")
+        self.refresh_button.clicked.connect(self.refresh_search_results)
+        self.header_layout.addWidget(self.refresh_button)
+
         # Close button
         close_button = QPushButton("✕")
         close_button.setFixedSize(PanelStyles.CLOSE_BUTTON_SIZE, PanelStyles.CLOSE_BUTTON_SIZE)
@@ -665,9 +674,9 @@ class GlobalSearchPanel(QWidget, TaskbarMinimizableMixin):
         # Clear search bar
         self.search_bar.clear_search()
 
-        # Display only first 100 items+lists initially (for performance)
+        # Display only first 50 items+lists initially (for performance)
         # When user searches/filters, all matching items will be shown
-        initial_display_limit = 100
+        initial_display_limit = 50
         items_to_display = self.all_items[:initial_display_limit]
         total_count = len(self.all_items) + len(self.all_lists)
 
@@ -785,13 +794,13 @@ class GlobalSearchPanel(QWidget, TaskbarMinimizableMixin):
         self.clear_items()
 
         # Límite de visualización
-        MAX_DISPLAY_ITEMS = 100
+        MAX_DISPLAY_ITEMS = 50
         MAX_DISPLAY_LISTS = 100
 
         # === SECCIÓN DE ITEMS ===
         if items:
             total_items = len(items)
-            items_to_display = items[:MAX_DISPLAY_ITEMS]  # Limitar a 100
+            items_to_display = items[:MAX_DISPLAY_ITEMS]  # Limitar a 50
 
             # Section header con conteo
             if total_items > MAX_DISPLAY_ITEMS:
@@ -812,7 +821,7 @@ class GlobalSearchPanel(QWidget, TaskbarMinimizableMixin):
             """)
             self.items_layout.insertWidget(self.items_layout.count() - 1, items_header)
 
-            # Add items (solo los primeros 100)
+            # Add items (solo los primeros 50)
             for idx, item in enumerate(items_to_display):
                 logger.debug(f"Creating item button {idx+1}/{len(items_to_display)}: {item.label}")
 
@@ -1257,8 +1266,8 @@ class GlobalSearchPanel(QWidget, TaskbarMinimizableMixin):
         # Apply initial display limit if no search/filters are active
         # (for performance with large datasets)
         if not query.strip() and not self.current_filters and self.current_state_filter == 'normal':
-            # No search, no advanced filters, no state filter -> limit to 100 items+lists
-            initial_display_limit = 100
+            # No search, no advanced filters, no state filter -> limit to 50 items+lists
+            initial_display_limit = 50
             items_to_show = filtered_items[:initial_display_limit]
             remaining_slots = initial_display_limit - len(items_to_show)
             lists_to_show = filtered_lists[:remaining_slots] if remaining_slots > 0 else []
