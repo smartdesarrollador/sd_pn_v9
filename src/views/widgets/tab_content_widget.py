@@ -77,6 +77,9 @@ class TabContentWidget(QWidget):
         # Mantener referencia legacy
         self.tag_manager = self.project_tag_manager
 
+        # Screenshot controller (se establece después)
+        self.screenshot_controller = None
+
         self._setup_ui()
         self._connect_signals()
 
@@ -369,11 +372,15 @@ class TabContentWidget(QWidget):
         # Cargar items (ahora son objetos ItemFieldData directamente)
         self.items_section.set_items_data(draft.items)
 
+        # Cargar screenshots
+        if draft.screenshots:
+            self.items_section.set_screenshots_data(draft.screenshots)
+
         # Cargar tags de items
         if draft.item_tags:
             self.item_tags_section.set_selected_tags(draft.item_tags)
 
-        logger.debug(f"Datos cargados: {draft.get_items_count()} items, categoría={draft.category_id}")
+        logger.debug(f"Datos cargados: {draft.get_items_count()} items, {len(draft.screenshots)} screenshots, categoría={draft.category_id}")
 
     def get_data(self) -> ItemDraft:
         """
@@ -400,7 +407,10 @@ class TabContentWidget(QWidget):
         # Agregar items (ahora son objetos ItemFieldData, no diccionarios)
         draft.items = self.items_section.get_non_empty_items()
 
-        logger.debug(f"Datos obtenidos: {draft.get_items_count()} items válidos (list_id={draft.list_id})")
+        # Agregar screenshots
+        draft.screenshots = self.items_section.get_screenshots_data()
+
+        logger.debug(f"Datos obtenidos: {draft.get_items_count()} items válidos, {len(draft.screenshots)} screenshots (list_id={draft.list_id})")
         return draft
 
     def validate(self) -> tuple[bool, list[str]]:
@@ -471,6 +481,7 @@ class TabContentWidget(QWidget):
         self.category_section.clear()
         self.project_tags_section.clear_selection()
         self.items_section.clear_all_items()
+        self.items_section.clear_all_screenshots()
         self.item_tags_section.clear_selection()
         logger.debug(f"Tab {self.tab_id} limpiado")
 
@@ -515,6 +526,20 @@ class TabContentWidget(QWidget):
     def load_available_item_tags(self, tags: list[str]):
         """Carga tags de items disponibles"""
         self.item_tags_section.load_tags(tags)
+
+    def set_screenshot_controller(self, controller):
+        """
+        Establece el controlador de capturas de pantalla
+
+        Args:
+            controller: Instancia de ScreenshotController
+        """
+        self.screenshot_controller = controller
+
+        # Pasar al items_section
+        if hasattr(self, 'items_section') and self.items_section:
+            self.items_section.set_screenshot_controller(controller)
+            logger.debug(f"Screenshot controller set for tab {self.tab_id}")
 
     def __repr__(self) -> str:
         """Representación del widget"""

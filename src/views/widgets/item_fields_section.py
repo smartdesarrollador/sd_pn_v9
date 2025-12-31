@@ -1,5 +1,5 @@
 """
-Widget de sección de campos de items para el Creador Masivo - VERSIÓN 2.0
+Widget de sección de campos de items para el Creador Masivo - VERSIÓN 2.1
 
 Características:
 - Solo Item Especial (con label separado + checkbox sensible)
@@ -7,19 +7,21 @@ Características:
 - Gestión dinámica de items
 - Validación de todos los items
 - Toggle de flechas con checkbox "Crear como lista"
+- Captura de pantallas integrada con preview
 
 NOTA: El scroll es manejado por el contenedor padre (TabContentWidget)
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame
+    QFrame, QScrollArea, QMessageBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
 from src.views.widgets.item_field_widget import ItemFieldWidget
 from src.models.item_draft import ItemFieldData
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,10 @@ class ItemFieldsSection(QWidget):
         super().__init__(parent)
         self.item_widgets: list[ItemFieldWidget] = []
         self.create_as_list_enabled = False  # Estado del checkbox "Crear como lista"
+
+        # Screenshot management
+        self.screenshot_controller = None
+        self.screenshots = []  # Lista de dicts: {'filepath': str, 'label': str, 'widget': ScreenshotPreviewWidget}
 
         self._setup_ui()
         self._apply_styles()
@@ -82,7 +88,7 @@ class ItemFieldsSection(QWidget):
         self.items_layout.setSpacing(10)
         layout.addLayout(self.items_layout)
 
-        # Botón: Item Especial (debajo de los items)
+        # Botones: Item Especial + Screenshot (debajo de los items)
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 10, 0, 0)
         button_layout.addStretch()
@@ -94,7 +100,63 @@ class ItemFieldsSection(QWidget):
         self.add_special_btn.setProperty("special_button", True)
         button_layout.addWidget(self.add_special_btn)
 
+        # Botón de captura de pantalla
+        self.screenshot_btn = QPushButton("📷 Captura")
+        self.screenshot_btn.setFixedHeight(35)
+        self.screenshot_btn.setMinimumWidth(120)
+        self.screenshot_btn.setToolTip("Tomar captura de pantalla y agregar como item a la lista actual")
+        self.screenshot_btn.setProperty("screenshot_button", True)
+        button_layout.addWidget(self.screenshot_btn)
+
         layout.addLayout(button_layout)
+
+        # === SECCIÓN DE SCREENSHOTS ===
+        # Separador
+        screenshots_separator = QFrame()
+        screenshots_separator.setFrameShape(QFrame.Shape.HLine)
+        screenshots_separator.setStyleSheet("background-color: #444;")
+        layout.addWidget(screenshots_separator)
+
+        # Título de screenshots
+        screenshots_header_layout = QHBoxLayout()
+        screenshots_title = QLabel("📷 Capturas de Pantalla")
+        screenshots_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        screenshots_header_layout.addWidget(screenshots_title)
+
+        self.screenshots_count_label = QLabel("(0)")
+        self.screenshots_count_label.setStyleSheet("color: #888; font-size: 11px;")
+        screenshots_header_layout.addWidget(self.screenshots_count_label)
+
+        screenshots_header_layout.addStretch()
+        layout.addLayout(screenshots_header_layout)
+
+        # Contenedor con scroll para screenshots
+        self.screenshots_scroll = QScrollArea()
+        self.screenshots_scroll.setWidgetResizable(True)
+        self.screenshots_scroll.setMaximumHeight(250)
+        self.screenshots_scroll.setStyleSheet("""
+            QScrollArea {
+                border: 1px solid #444;
+                border-radius: 4px;
+                background-color: #2d2d2d;
+            }
+        """)
+
+        # Widget contenedor de screenshots
+        screenshots_container = QWidget()
+        self.screenshots_layout = QVBoxLayout(screenshots_container)
+        self.screenshots_layout.setContentsMargins(10, 10, 10, 10)
+        self.screenshots_layout.setSpacing(10)
+
+        # Mensaje "No hay capturas"
+        self.no_screenshots_label = QLabel("No hay capturas de pantalla")
+        self.no_screenshots_label.setStyleSheet("color: #666; font-style: italic; padding: 20px;")
+        self.no_screenshots_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.screenshots_layout.addWidget(self.no_screenshots_label)
+
+        self.screenshots_layout.addStretch()
+        self.screenshots_scroll.setWidget(screenshots_container)
+        layout.addWidget(self.screenshots_scroll)
 
     def _apply_styles(self):
         """Aplica estilos CSS al widget"""
@@ -114,6 +176,21 @@ class ItemFieldsSection(QWidget):
             QPushButton[special_button="true"]:pressed {
                 background-color: #f57c00;
             }
+            QPushButton[screenshot_button="true"] {
+                background-color: #2196F3;
+                color: #fff;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px 16px;
+            }
+            QPushButton[screenshot_button="true"]:hover {
+                background-color: #42A5F5;
+            }
+            QPushButton[screenshot_button="true"]:pressed {
+                background-color: #1976D2;
+            }
             QLabel {
                 color: #ffffff;
             }
@@ -122,6 +199,7 @@ class ItemFieldsSection(QWidget):
     def _connect_signals(self):
         """Conecta señales internas"""
         self.add_special_btn.clicked.connect(lambda: self.add_special_item())
+        self.screenshot_btn.clicked.connect(self._on_screenshot_clicked)
 
     # === AGREGAR ITEMS ===
 
@@ -454,8 +532,271 @@ class ItemFieldsSection(QWidget):
         items = [ItemFieldData.from_dict(data) for data in items_data]
         self.set_items_data(items)
 
+    # === SCREENSHOT MANAGEMENT ===
+
+    def set_screenshot_controller(self, controller):
+        """
+        Establece la referencia al ScreenshotController
+
+        Args:
+            controller: Instancia de ScreenshotController
+        """
+        self.screenshot_controller = controller
+
+        # Conectar señal de captura completada
+        if self.screenshot_controller:
+            try:
+                self.screenshot_controller.screenshot_completed.connect(
+                    self._on_screenshot_captured
+                )
+                logger.debug("ScreenshotController connected to ItemFieldsSection")
+            except Exception as e:
+                logger.error(f"Error connecting screenshot controller: {e}")
+
+    def _on_screenshot_clicked(self):
+        """Callback cuando se hace clic en el botón de captura"""
+        if not self.screenshot_controller:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "No se ha configurado el controlador de capturas de pantalla."
+            )
+            logger.error("Screenshot controller not set")
+            return
+
+        # Validar que se esté creando como lista (opción seleccionada en el diálogo padre)
+        # Esta validación la hace el padre, aquí solo iniciamos la captura
+        logger.info("Starting screenshot capture from ItemFieldsSection")
+
+        try:
+            self.screenshot_controller.start_screenshot()
+        except Exception as e:
+            logger.error(f"Error starting screenshot: {e}")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al iniciar captura: {str(e)}"
+            )
+
+    def _on_screenshot_captured(self, success: bool, filepath: str):
+        """
+        Callback cuando se completa una captura de pantalla
+
+        Args:
+            success: True si la captura fue exitosa
+            filepath: Ruta completa al archivo de captura
+        """
+        if not success or not filepath:
+            logger.warning("Screenshot capture failed or cancelled")
+            return
+
+        logger.info(f"Screenshot captured: {filepath}")
+
+        try:
+            # Importar widget de preview aquí para evitar dependencia circular
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "util"))
+            from screenshot_preview_widget import ScreenshotPreviewWidget
+
+            # Generar label automático
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            default_label = f"Captura {timestamp}"
+
+            # Crear widget de preview
+            preview_widget = ScreenshotPreviewWidget(
+                image_path=filepath,
+                label=default_label,
+                parent=self
+            )
+
+            # Conectar señales
+            screenshot_index = len(self.screenshots)
+            preview_widget.label_changed.connect(
+                lambda text, idx=screenshot_index: self._on_screenshot_label_changed(idx, text)
+            )
+            preview_widget.remove_requested.connect(
+                lambda idx=screenshot_index: self._on_screenshot_removed(idx)
+            )
+
+            # Agregar a lista
+            self.screenshots.append({
+                'filepath': filepath,
+                'label': default_label,
+                'widget': preview_widget
+            })
+
+            # Ocultar mensaje "No hay capturas"
+            if self.no_screenshots_label.isVisible():
+                self.no_screenshots_label.hide()
+
+            # Agregar al layout (antes del stretch)
+            self.screenshots_layout.insertWidget(
+                self.screenshots_layout.count() - 1,  # Antes del stretch
+                preview_widget
+            )
+
+            # Actualizar contador
+            self._update_screenshots_count()
+
+            # Emitir señal de cambio
+            self.data_changed.emit()
+
+            logger.info(f"Screenshot preview added: {default_label}")
+
+        except Exception as e:
+            logger.error(f"Error adding screenshot preview: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al agregar preview de captura: {str(e)}"
+            )
+
+    def _on_screenshot_label_changed(self, index: int, new_label: str):
+        """
+        Callback cuando cambia el label de un screenshot
+
+        Args:
+            index: Índice del screenshot
+            new_label: Nuevo label
+        """
+        if 0 <= index < len(self.screenshots):
+            self.screenshots[index]['label'] = new_label
+            logger.debug(f"Screenshot label updated: {index} -> {new_label}")
+            self.data_changed.emit()
+
+    def _on_screenshot_removed(self, index: int):
+        """
+        Callback cuando se elimina un screenshot
+
+        Args:
+            index: Índice del screenshot a eliminar
+        """
+        if 0 <= index < len(self.screenshots):
+            screenshot = self.screenshots[index]
+
+            # Remover widget del layout
+            widget = screenshot['widget']
+            self.screenshots_layout.removeWidget(widget)
+            widget.deleteLater()
+
+            # Remover de lista
+            self.screenshots.pop(index)
+
+            # Actualizar contador
+            self._update_screenshots_count()
+
+            # Mostrar mensaje si no hay screenshots
+            if len(self.screenshots) == 0:
+                self.no_screenshots_label.show()
+
+            logger.info(f"Screenshot removed: {index}")
+            self.data_changed.emit()
+
+    def _update_screenshots_count(self):
+        """Actualiza el contador de screenshots"""
+        count = len(self.screenshots)
+        self.screenshots_count_label.setText(f"({count})")
+
+    def get_screenshots_data(self) -> list[dict]:
+        """
+        Obtiene los datos de todos los screenshots
+
+        Returns:
+            Lista de dicts con filepath y label
+        """
+        return [
+            {
+                'filepath': s['filepath'],
+                'label': s['label']
+            }
+            for s in self.screenshots
+        ]
+
+    def set_screenshots_data(self, screenshots_data: list[dict]):
+        """
+        Establece screenshots desde datos (para restaurar drafts)
+
+        Args:
+            screenshots_data: Lista de dicts con filepath y label
+        """
+        # Limpiar screenshots existentes
+        self.clear_all_screenshots()
+
+        # Agregar screenshots desde datos
+        if screenshots_data:
+            try:
+                import sys
+                from pathlib import Path
+                sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "util"))
+                from screenshot_preview_widget import ScreenshotPreviewWidget
+
+                for idx, screenshot_data in enumerate(screenshots_data):
+                    filepath = screenshot_data.get('filepath', '')
+                    label = screenshot_data.get('label', 'Captura')
+
+                    if not filepath or not os.path.exists(filepath):
+                        logger.warning(f"Screenshot file not found: {filepath}")
+                        continue
+
+                    # Crear widget de preview
+                    preview_widget = ScreenshotPreviewWidget(
+                        image_path=filepath,
+                        label=label,
+                        parent=self
+                    )
+
+                    # Conectar señales
+                    screenshot_index = len(self.screenshots)
+                    preview_widget.label_changed.connect(
+                        lambda text, idx=screenshot_index: self._on_screenshot_label_changed(idx, text)
+                    )
+                    preview_widget.remove_requested.connect(
+                        lambda idx=screenshot_index: self._on_screenshot_removed(idx)
+                    )
+
+                    # Agregar a lista
+                    self.screenshots.append({
+                        'filepath': filepath,
+                        'label': label,
+                        'widget': preview_widget
+                    })
+
+                    # Agregar al layout
+                    self.screenshots_layout.insertWidget(
+                        self.screenshots_layout.count() - 1,
+                        preview_widget
+                    )
+
+                # Ocultar mensaje "No hay capturas" si hay screenshots
+                if len(self.screenshots) > 0:
+                    self.no_screenshots_label.hide()
+
+                # Actualizar contador
+                self._update_screenshots_count()
+
+                logger.info(f"Restored {len(self.screenshots)} screenshots from data")
+
+            except Exception as e:
+                logger.error(f"Error setting screenshots data: {e}", exc_info=True)
+
+    def clear_all_screenshots(self):
+        """Limpia todos los screenshots"""
+        for screenshot in self.screenshots[:]:
+            widget = screenshot['widget']
+            self.screenshots_layout.removeWidget(widget)
+            widget.deleteLater()
+
+        self.screenshots.clear()
+        self._update_screenshots_count()
+        self.no_screenshots_label.show()
+
+        logger.debug("All screenshots cleared")
+
     def __repr__(self) -> str:
         """Representación del widget"""
         non_empty = self.get_items_count()
         total = self.get_total_fields()
-        return f"ItemFieldsSection(items={non_empty}/{total})"
+        screenshots_count = len(self.screenshots)
+        return f"ItemFieldsSection(items={non_empty}/{total}, screenshots={screenshots_count})"

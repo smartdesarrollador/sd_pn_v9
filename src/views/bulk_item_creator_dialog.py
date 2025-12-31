@@ -71,20 +71,27 @@ class BulkItemCreatorDialog(QWidget):
     items_saved = pyqtSignal(int)  # Cantidad de items guardados
     closed = pyqtSignal()  # Cuando se cierra la ventana
 
-    def __init__(self, db_manager, config_manager, parent=None):
+    def __init__(self, db_manager, config_manager, main_controller=None, parent=None):
         """
         Inicializa la ventana del Creador Masivo
 
         Args:
             db_manager: Instancia de DBManager
             config_manager: Instancia de ConfigManager
+            main_controller: Instancia de MainController (para screenshot_controller)
             parent: Widget padre
         """
         super().__init__(parent)
         self.db = db_manager
         self.config = config_manager
+        self.main_controller = main_controller
         self.appbar_registered = False  # Estado del AppBar
         self.drag_position = QPoint()  # Para dragging de ventana
+
+        # Screenshot controller (obtenido del main_controller)
+        self.screenshot_controller = None
+        if main_controller and hasattr(main_controller, 'screenshot_controller'):
+            self.screenshot_controller = main_controller.screenshot_controller
 
         # Draft persistence manager
         self.draft_manager = DraftPersistenceManager(
@@ -397,6 +404,10 @@ class BulkItemCreatorDialog(QWidget):
             parent=self
         )
 
+        # Establecer screenshot controller si está disponible
+        if self.screenshot_controller:
+            tab_content.set_screenshot_controller(self.screenshot_controller)
+
         # Cargar datos disponibles
         self._load_tab_available_data(tab_content)
 
@@ -427,6 +438,10 @@ class BulkItemCreatorDialog(QWidget):
             area_tag_manager=self.area_tag_manager,
             parent=self
         )
+
+        # Establecer screenshot controller si está disponible
+        if self.screenshot_controller:
+            tab_content.set_screenshot_controller(self.screenshot_controller)
 
         # Cargar datos disponibles
         self._load_tab_available_data(tab_content)
@@ -795,8 +810,16 @@ class BulkItemCreatorDialog(QWidget):
         # Determinar tipo de guardado
         has_project_or_area = draft.has_project_or_area()
 
+        # Calcular desglose de items
+        regular_items = len([item for item in draft.items if not item.is_empty()])
+        screenshots_count = len(draft.screenshots) if draft.screenshots else 0
+
         # Base del mensaje
         msg = f"✅ Se guardaron {count} items correctamente"
+
+        # Agregar desglose si hay screenshots
+        if screenshots_count > 0:
+            msg += f" ({regular_items} regulares + {screenshots_count} capturas)"
 
         # Si tiene proyecto/área, siempre es lista
         if has_project_or_area and draft.list_name:
@@ -906,7 +929,15 @@ class BulkItemCreatorDialog(QWidget):
             except Exception as e:
                 logger.error(f"Error guardando item simple: {e}")
 
-        logger.info(f"✓ Modo SIMPLE: {saved_count} items guardados")
+        # Guardar screenshots (si existen)
+        screenshots_count = self._save_screenshots(
+            draft=draft,
+            category_id=draft.category_id,
+            tags=draft.item_tags
+        )
+        saved_count += screenshots_count
+
+        logger.info(f"✓ Modo SIMPLE: {saved_count} items guardados ({len(draft.items)} regulares + {screenshots_count} screenshots)")
         return saved_count
 
     def _save_as_list(self, draft: ItemDraft) -> int:
@@ -964,7 +995,16 @@ class BulkItemCreatorDialog(QWidget):
                     except Exception as e:
                         logger.error(f"Error guardando item en lista existente: {e}")
 
-                logger.info(f"✓ {saved_count} items agregados a lista existente")
+                # Guardar screenshots (si existen)
+                screenshots_count = self._save_screenshots(
+                    draft=draft,
+                    category_id=draft.category_id,
+                    list_id=lista_id,
+                    tags=item_tags_with_list_name
+                )
+                saved_count += screenshots_count
+
+                logger.info(f"✓ {saved_count} items agregados a lista existente ({len(draft.items)} regulares + {screenshots_count} screenshots)")
                 return saved_count
 
             # MODO B: Crear nueva lista (flujo original)
@@ -1092,12 +1132,97 @@ class BulkItemCreatorDialog(QWidget):
                         )
                         logger.debug(f"Orden guardado para tag '{project_tag_name}': {next_order}")
 
-            logger.info(f"✓ Modo LISTA: {saved_count} items + relación {entity_name.lower()}")
+            # Paso 6: Guardar screenshots (si existen)
+            screenshots_count = self._save_screenshots(
+                draft=draft,
+                category_id=draft.category_id,
+                list_id=lista_id,
+                tags=item_tags_with_list_name
+            )
+            saved_count += screenshots_count
+
+            logger.info(f"✓ Modo LISTA: {saved_count} items + relación {entity_name.lower()} ({len(draft.items)} regulares + {screenshots_count} screenshots)")
 
         except Exception as e:
             logger.error(f"Error en guardado como lista: {e}")
             raise
 
+        return saved_count
+
+    def _save_screenshots(self, draft: ItemDraft, category_id: int, list_id: int = None, tags: list = None) -> int:
+        """
+        Guarda screenshots como items PATH en la base de datos
+
+        Args:
+            draft: Borrador con screenshots
+            category_id: ID de la categoría
+            list_id: ID de lista (opcional)
+            tags: Tags a aplicar (opcional)
+
+        Returns:
+            Cantidad de screenshots guardados
+        """
+        if not draft.screenshots:
+            return 0
+
+        saved_count = 0
+
+        logger.info(f"Guardando {len(draft.screenshots)} screenshots como items PATH")
+
+        for screenshot_data in draft.screenshots:
+            filepath = screenshot_data.get('filepath', '')
+            label = screenshot_data.get('label', 'Captura')
+
+            if not filepath:
+                logger.warning("Screenshot sin filepath, omitiendo")
+                continue
+
+            try:
+                # Obtener solo el nombre del archivo (relativo)
+                import os
+                filename = os.path.basename(filepath)
+
+                # Extraer metadatos del archivo
+                metadata = None
+                if self.main_controller and hasattr(self.main_controller, 'screenshot_controller'):
+                    screenshot_manager = self.main_controller.screenshot_controller.screenshot_manager
+                    metadata = screenshot_manager.get_screenshot_metadata(filepath)
+
+                if not metadata:
+                    logger.warning(f"No se pudieron extraer metadatos de {filepath}")
+                    # Continuar sin metadatos
+                    metadata = {}
+
+                # Extraer created_at de los metadatos si existe
+                created_at_str = None
+                if metadata.get('file_created_at'):
+                    # Convertir datetime a string en formato SQLite
+                    created_at_str = metadata['file_created_at'].strftime('%Y-%m-%d %H:%M:%S')
+
+                # Crear item PATH con metadatos
+                item_id = self.db.add_item(
+                    category_id=category_id,
+                    label=label,
+                    content=filename,  # Solo nombre de archivo relativo
+                    item_type='PATH',
+                    list_id=list_id,
+                    tags=tags or [],
+                    file_size=metadata.get('file_size'),
+                    file_type=metadata.get('file_type'),
+                    file_extension=metadata.get('file_extension'),
+                    original_filename=filename,  # Solo nombre de archivo relativo
+                    file_hash=metadata.get('file_hash'),
+                    created_at=created_at_str  # Fecha extraída del nombre del archivo
+                )
+
+                if item_id:
+                    saved_count += 1
+                    logger.debug(f"Screenshot guardado como item PATH: {label} ({filename})")
+
+            except Exception as e:
+                logger.error(f"Error guardando screenshot {filepath}: {e}", exc_info=True)
+
+        logger.info(f"✓ {saved_count} screenshots guardados como items PATH")
         return saved_count
 
     def _on_create_project(self):

@@ -1318,8 +1318,13 @@ class MainWindow(QMainWindow):
                 db_manager = self.controller.config_manager.db
                 config_manager = self.controller.config_manager
 
-                # Crear ventana
-                self.bulk_creator_window = BulkItemCreatorDialog(db_manager, config_manager, parent=self)
+                # Crear ventana con main_controller para screenshot functionality
+                self.bulk_creator_window = BulkItemCreatorDialog(
+                    db_manager,
+                    config_manager,
+                    main_controller=self.controller,
+                    parent=self
+                )
                 self.bulk_creator_window.items_saved.connect(self.on_bulk_items_saved)
                 self.bulk_creator_window.closed.connect(self.on_bulk_creator_closed)
 

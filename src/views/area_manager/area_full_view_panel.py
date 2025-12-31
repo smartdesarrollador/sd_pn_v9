@@ -15,6 +15,9 @@ class AreaFullViewPanel(QWidget):
     def __init__(self, db_manager=None, parent=None):
         super().__init__(parent)
 
+        # DB Manager (para pasar a ItemGroupWidget para imágenes)
+        self.db_manager = db_manager
+
         self.data_manager = AreaDataManager(db_manager)
         self.area_data = None
         self.current_filters = []
@@ -205,7 +208,8 @@ class AreaFullViewPanel(QWidget):
         for group in tag_data['groups']:
             group_widget = ItemGroupWidget(
                 group['name'],
-                group['type']
+                group['type'],
+                db_manager=self.db_manager
             )
 
             for item_data in group['items']:
@@ -234,7 +238,7 @@ class AreaFullViewPanel(QWidget):
         tag_container_layout.setSpacing(8)
 
         for elem in elements:
-            group_widget = ItemGroupWidget(elem['name'], elem['type'])
+            group_widget = ItemGroupWidget(elem['name'], elem['type'], db_manager=self.db_manager)
             for item_data in elem['items']:
                 group_widget.add_item(item_data)
             tag_container_layout.addWidget(group_widget)
@@ -259,7 +263,7 @@ class AreaFullViewPanel(QWidget):
         tag_container_layout.setContentsMargins(0, 0, 0, 0)
         tag_container_layout.setSpacing(8)
 
-        group_widget = ItemGroupWidget("Sin clasificar", "other")
+        group_widget = ItemGroupWidget("Sin clasificar", "other", db_manager=self.db_manager)
         for item_data in items:
             group_widget.add_item(item_data)
 

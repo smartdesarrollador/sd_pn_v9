@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional
 from pathlib import Path
 
-from PyQt6.QtCore import QObject, QTimer, QRect
+from PyQt6.QtCore import QObject, QTimer, QRect, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
 from src.core.screenshot_manager import ScreenshotManager
@@ -35,7 +35,15 @@ class ScreenshotController(QObject):
     - ScreenshotManager (captura y guardado)
     - DBManager (creación de items)
     - NotificationManager (feedback al usuario)
+
+    Señales:
+        screenshot_completed(bool, str): Emitida cuando la captura se completa
+            - bool: True si fue exitosa, False si falló o se canceló
+            - str: Ruta completa al archivo de captura (vacío si falló)
     """
+
+    # Señales
+    screenshot_completed = pyqtSignal(bool, str)  # (success, filepath)
 
     def __init__(self, main_controller):
         """
@@ -198,6 +206,8 @@ class ScreenshotController(QObject):
     def _process_screenshot(self) -> None:
         """Procesa la captura: guardar, crear item, copiar, notificar"""
         if not self.captured_pixmap:
+            # Emitir señal de fallo
+            self.screenshot_completed.emit(False, "")
             return
 
         try:
@@ -213,6 +223,8 @@ class ScreenshotController(QObject):
                 logger.error("Failed to save screenshot")
                 self._show_error_notification("Error al guardar captura")
                 self._handle_screenshot_cancelled()
+                # Emitir señal de fallo
+                self.screenshot_completed.emit(False, "")
                 return
 
             logger.info(f"Screenshot saved: {filepath}")
@@ -238,10 +250,15 @@ class ScreenshotController(QObject):
             # Limpiar y restaurar
             self._cleanup_after_screenshot()
 
+            # Emitir señal de éxito con la ruta del archivo
+            self.screenshot_completed.emit(True, filepath)
+
         except Exception as e:
             logger.error(f"Error processing screenshot: {e}")
             self._show_error_notification(f"Error procesando captura: {str(e)}")
             self._cleanup_after_screenshot()
+            # Emitir señal de fallo
+            self.screenshot_completed.emit(False, "")
 
     def _show_save_dialog(self, filepath: str) -> Optional[int]:
         """
@@ -493,6 +510,8 @@ class ScreenshotController(QObject):
         """Handler cuando se cancela la captura"""
         logger.info("Screenshot cancelled")
         self._cleanup_after_screenshot()
+        # Emitir señal de cancelación
+        self.screenshot_completed.emit(False, "")
 
     def _cleanup_after_screenshot(self) -> None:
         """Limpieza después de completar o cancelar captura"""

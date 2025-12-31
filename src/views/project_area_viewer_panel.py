@@ -1322,7 +1322,7 @@ class ProjectAreaViewerPanel(QWidget):
 
         if not groups:
             # ✨ Si el tag no tiene listas, crear un ItemGroupWidget vacío con mensaje
-            empty_group = ItemGroupWidget("Listas", "list")
+            empty_group = ItemGroupWidget("Listas", "list", db_manager=self.db)
 
             # Conectar señal de crear lista
             create_list_callback = lambda checked=False, tn=tag_name, tid=tag_id: self._on_create_list(tn, tid)
@@ -1347,7 +1347,8 @@ class ProjectAreaViewerPanel(QWidget):
             for group in groups:
                 group_widget = ItemGroupWidget(
                     group['name'],
-                    group['type']
+                    group['type'],
+                    db_manager=self.db
                 )
 
                 # Conectar señales del grupo (✨ NUEVO)
@@ -1400,7 +1401,7 @@ class ProjectAreaViewerPanel(QWidget):
         tag_container_layout.setSpacing(8)
 
         # Grupo de items
-        group_widget = ItemGroupWidget("Sin clasificar", "other")
+        group_widget = ItemGroupWidget("Sin clasificar", "other", db_manager=self.db)
         for item_data in items:
             group_widget.add_item(item_data)
 

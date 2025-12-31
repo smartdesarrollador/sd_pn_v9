@@ -12,6 +12,12 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButt
 from PyQt6.QtCore import Qt, pyqtSignal
 from .headers.group_header import GroupHeaderWidget
 from .items import TextItemWidget, CodeItemWidget, URLItemWidget, PathItemWidget, WebStaticItemWidget
+import sys
+from pathlib import Path
+
+# Importar ImageItemWidget desde util (temporalmente)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent / "util"))
+from image_item_widget import ImageItemWidget
 
 
 class ItemGroupWidget(QWidget):
@@ -33,19 +39,21 @@ class ItemGroupWidget(QWidget):
     create_list_clicked = pyqtSignal()
     add_item_clicked = pyqtSignal()
 
-    def __init__(self, group_name: str, group_type: str = "category", parent=None):
+    def __init__(self, group_name: str, group_type: str = "category", db_manager=None, parent=None):
         """
         Inicializar widget de grupo de items
 
         Args:
             group_name: Nombre del grupo
             group_type: Tipo de grupo ('category', 'list', 'tag')
+            db_manager: Instancia de DBManager (para ImageItemWidget)
             parent: Widget padre
         """
         super().__init__(parent)
 
         self.group_name = group_name
         self.group_type = group_type
+        self.db_manager = db_manager
         self.items = []
 
         self.init_ui()
@@ -125,6 +133,36 @@ class ItemGroupWidget(QWidget):
 
         self.main_layout.addWidget(toolbar)
 
+    def _is_image_item(self, item_data: dict) -> bool:
+        """
+        Detectar si un item PATH es una imagen
+
+        Args:
+            item_data: Diccionario con datos del item
+
+        Returns:
+            True si es un item de imagen
+        """
+        if item_data.get('type') != 'PATH':
+            return False
+
+        # Extensiones de imagen soportadas
+        image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico', '.svg'}
+
+        # Verificar file_extension si existe
+        file_extension = item_data.get('file_extension', '')
+        if file_extension:
+            return file_extension.lower() in image_extensions
+
+        # Fallback: verificar por content (nombre de archivo)
+        content = item_data.get('content', '')
+        if content:
+            import os
+            _, ext = os.path.splitext(content)
+            return ext.lower() in image_extensions
+
+        return False
+
     def add_item(self, item_data: dict):
         """
         Agregar item al grupo
@@ -143,7 +181,18 @@ class ItemGroupWidget(QWidget):
         elif item_type == 'URL':
             item_widget = URLItemWidget(item_data)
         elif item_type == 'PATH':
-            item_widget = PathItemWidget(item_data)
+            # Detectar si es imagen para usar widget especializado
+            if self._is_image_item(item_data):
+                item_widget = ImageItemWidget(item_data, db_manager=self.db_manager)
+                # Conectar señales específicas de imagen
+                item_widget.thumbnail_clicked.connect(lambda: self._on_image_thumbnail_clicked(item_data))
+                item_widget.move_up_clicked.connect(lambda: print(f"TODO: Move up {item_data.get('label')}"))
+                item_widget.move_down_clicked.connect(lambda: print(f"TODO: Move down {item_data.get('label')}"))
+                item_widget.edit_clicked.connect(lambda: print(f"TODO: Edit {item_data.get('label')}"))
+                item_widget.detail_clicked.connect(lambda: print(f"TODO: Detail {item_data.get('label')}"))
+                item_widget.delete_clicked.connect(lambda: print(f"TODO: Delete {item_data.get('label')}"))
+            else:
+                item_widget = PathItemWidget(item_data)
         elif item_type == 'WEB_STATIC':
             item_widget = WebStaticItemWidget(item_data)
         else:  # TEXT o por defecto
@@ -164,6 +213,47 @@ class ItemGroupWidget(QWidget):
         """
         label = item_data.get('label', 'Sin título')
         print(f"✓ Item copiado del grupo '{self.group_name}': {label}")
+
+    def _on_image_thumbnail_clicked(self, item_data: dict):
+        """
+        Manejar clic en miniatura de imagen - abrir visor completo
+
+        Args:
+            item_data: Datos del item de imagen
+        """
+        try:
+            # Importar ImageViewerDialog
+            from image_viewer_dialog import ImageViewerDialog
+
+            # Obtener ruta completa de la imagen
+            filename = item_data.get('content', '')
+            if not filename:
+                print(f"⚠️ Item sin filename: {item_data.get('label')}")
+                return
+
+            # Construir ruta completa
+            import os
+            if self.db_manager and hasattr(self.db_manager, 'config_manager'):
+                base_path = self.db_manager.config_manager.get_setting('files_base_path', '')
+                folder = self.db_manager.config_manager.get_setting('screenshots_folder_name', 'IMAGENES')
+                full_path = os.path.join(base_path, folder, filename)
+            else:
+                full_path = filename
+
+            # Verificar que el archivo existe
+            if not os.path.exists(full_path):
+                print(f"⚠️ Imagen no encontrada: {full_path}")
+                return
+
+            # Abrir visor de imagen
+            print(f"🖼️ Abriendo visor para: {item_data.get('label')}")
+            viewer = ImageViewerDialog(full_path, parent=self)
+            viewer.exec()
+
+        except Exception as e:
+            print(f"❌ Error abriendo visor de imagen: {e}")
+            import traceback
+            traceback.print_exc()
 
     def clear_items(self):
         """Limpiar todos los items del grupo"""

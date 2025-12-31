@@ -110,6 +110,7 @@ class ItemDraft:
         item_tags: Tags generales de items
         project_element_tags: Tags específicos del proyecto/área
         items: Lista de campos de items
+        screenshots: Lista de capturas de pantalla (filepath y label)
         created_at: Timestamp de creación
         updated_at: Timestamp de última actualización
     """
@@ -125,6 +126,7 @@ class ItemDraft:
     item_tags: List[str] = field(default_factory=list)
     project_element_tags: List[str] = field(default_factory=list)
     items: List[ItemFieldData] = field(default_factory=list)
+    screenshots: List[dict] = field(default_factory=list)  # [{'filepath': str, 'label': str}, ...]
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -147,7 +149,8 @@ class ItemDraft:
             'special_tag': self.special_tag,
             'item_tags': self.item_tags,
             'project_element_tags': self.project_element_tags,
-            'items': [item.to_dict() for item in self.items]
+            'items': [item.to_dict() for item in self.items],
+            'screenshots': self.screenshots  # Lista de dicts ya serializados
         }
 
     @classmethod
@@ -165,6 +168,9 @@ class ItemDraft:
         items_data = data.get('items', [])
         items = [ItemFieldData.from_dict(item) for item in items_data]
 
+        # Screenshots ya vienen como lista de dicts
+        screenshots = data.get('screenshots', [])
+
         return cls(
             tab_id=data.get('tab_id', str(uuid.uuid4())),
             tab_name=data.get('tab_name', 'Sin título'),
@@ -178,6 +184,7 @@ class ItemDraft:
             item_tags=data.get('item_tags', []),
             project_element_tags=data.get('project_element_tags', []),
             items=items,
+            screenshots=screenshots,
             created_at=data.get('created_at'),
             updated_at=data.get('updated_at')
         )

@@ -52,6 +52,9 @@ class ProjectFullViewPanel(QWidget):
         """
         super().__init__(parent)
 
+        # DB Manager (para pasar a ItemGroupWidget para imágenes)
+        self.db_manager = db_manager
+
         # Data manager
         self.data_manager = ProjectDataManager(db_manager)
 
@@ -281,7 +284,8 @@ class ProjectFullViewPanel(QWidget):
         for group in tag_data['groups']:
             group_widget = ItemGroupWidget(
                 group['name'],
-                group['type']
+                group['type'],
+                db_manager=self.db_manager
             )
 
             # Agregar items al grupo
@@ -319,7 +323,7 @@ class ProjectFullViewPanel(QWidget):
         tag_container_layout.setSpacing(4)
 
         # Grupo de items
-        group_widget = ItemGroupWidget("Sin clasificar", "other")
+        group_widget = ItemGroupWidget("Sin clasificar", "other", db_manager=self.db_manager)
         for item_data in items:
             group_widget.add_item(item_data)
 
