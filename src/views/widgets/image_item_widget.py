@@ -28,6 +28,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Importar diálogo visor de imágenes
+from src.views.dialogs.image_viewer_dialog import ImageViewerDialog
+
 
 class ImageItemWidget(QFrame):
     """
@@ -405,8 +408,27 @@ class ImageItemWidget(QFrame):
             logger.error(traceback.format_exc())
 
     def _on_thumbnail_clicked(self):
-        """Callback cuando se hace clic en la miniatura"""
+        """Callback cuando se hace clic en la miniatura o botón de ojo"""
+        # Emitir señal para compatibilidad
         self.thumbnail_clicked.emit()
+
+        # Abrir diálogo visor de imágenes
+        if self.image_path and os.path.exists(self.image_path):
+            try:
+                title = self.item_data.get('label', 'Imagen')
+                dialog = ImageViewerDialog(
+                    image_path=self.image_path,
+                    title=title,
+                    parent=self.window()
+                )
+                dialog.exec()
+                logger.info(f"Diálogo visor de imagen abierto: {self.image_path}")
+            except Exception as e:
+                logger.error(f"Error al abrir diálogo visor de imagen: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning(f"No se puede abrir visor: imagen no encontrada en {self.image_path}")
 
     def _on_copy_clicked(self):
         """Copiar ruta de imagen al portapapeles"""
