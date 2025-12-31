@@ -202,7 +202,7 @@ class ImageItemWidget(QFrame):
             }
         """)
         self.view_btn.clicked.connect(self._on_thumbnail_clicked)
-        main_layout.addWidget(self.view_btn)
+        main_layout.addWidget(self.view_btn, alignment=Qt.AlignmentFlag.AlignTop)
 
         # ==== CONTENIDO CENTRAL (TÍTULO + MINIATURA) ====
         content_layout = QVBoxLayout()
@@ -252,21 +252,36 @@ class ImageItemWidget(QFrame):
         # Spacer para empujar botones a la derecha
         main_layout.addStretch()
 
-        # ==== BOTONES DE ACCIÓN (DERECHA) - Similar a ItemButton ====
+        # ==== BOTONES DE ACCIÓN (DERECHA ARRIBA) - Similar a ItemButton ====
+        # Layout vertical para alinear botones arriba
+        buttons_container = QVBoxLayout()
+        buttons_container.setSpacing(0)
+
+        # Fila horizontal de botones
+        buttons_row = QHBoxLayout()
+        buttons_row.setSpacing(4)
+
         # Copiar ruta
         self.copy_btn = self._create_action_button("📋", "Copiar ruta de imagen")
         self.copy_btn.clicked.connect(self._on_copy_clicked)
-        main_layout.addWidget(self.copy_btn)
+        buttons_row.addWidget(self.copy_btn)
 
         # Editar
         self.edit_btn = self._create_action_button("✏️", "Editar")
         self.edit_btn.clicked.connect(self.edit_clicked.emit)
-        main_layout.addWidget(self.edit_btn)
+        buttons_row.addWidget(self.edit_btn)
 
         # Detalles (info)
         self.detail_btn = self._create_action_button("ℹ️", "Ver detalles")
         self.detail_btn.clicked.connect(self.detail_clicked.emit)
-        main_layout.addWidget(self.detail_btn)
+        buttons_row.addWidget(self.detail_btn)
+
+        # Agregar fila de botones al contenedor vertical
+        buttons_container.addLayout(buttons_row)
+        # Stretch para empujar botones hacia arriba
+        buttons_container.addStretch()
+
+        main_layout.addLayout(buttons_container)
 
     def _create_action_button(self, text: str, tooltip: str) -> QPushButton:
         """
