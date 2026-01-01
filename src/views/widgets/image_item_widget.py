@@ -4,18 +4,22 @@ Widget especializado para items de imagen en el Visor de Proyectos/Áreas
 
 Layout (similar a ItemButton):
 - Botón de ojo 👁️ (32x32px) a la izquierda para ver imagen completa
-- Título + Miniatura (150x150px) en el centro (layout vertical)
+- Título + Miniatura (150x150px min, 500x500px max) en el centro (layout vertical)
 - Botones de acción a la derecha: 📋 ✏️ ℹ️ (estilo ItemButton)
 
 Características:
 - Miniatura clickeable para ver imagen en tamaño completo
-- Diseño consistente con items normales (ItemButton)
+- Diseño CONSISTENTE con items normales (mismo borde, padding, border-radius)
+- Contenedor REDIMENSIONABLE en altura (200px-600px) con indicador visual
+- Borde de 1px sólido (#444) con border-radius de 6px
+- Hover effect con borde verde (#00ff88)
 - Resolución automática de rutas (files_base_path + IMAGENES + filename)
 - Señales compatibles con ItemGroupWidget
+- Re-escalado automático de miniatura al redimensionar
 
 Autor: Widget Sidebar Team
-Versión: 2.0
-Fecha: 2025-12-31
+Versión: 3.0
+Fecha: 2026-01-01
 """
 
 from PyQt6.QtWidgets import (
@@ -175,8 +179,9 @@ class ImageItemWidget(QFrame):
     def _setup_ui(self):
         """Configurar interfaz del widget - Diseño similar a ItemButton"""
         # Frame properties (altura dinámica y redimensionable)
-        self.setMinimumHeight(180)  # Altura mínima
-        self.setMinimumWidth(300)
+        self.setMinimumHeight(200)  # Altura mínima aumentada
+        self.setMaximumHeight(600)  # Altura máxima para evitar que crezca demasiado
+        self.setMinimumWidth(400)   # Ancho mínimo igual a items normales
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         # Permitir redimensionamiento vertical
@@ -268,6 +273,19 @@ class ImageItemWidget(QFrame):
             desc_label.setWordWrap(True)
             content_layout.addWidget(desc_label)
 
+        # Indicador visual de redimensionamiento (esquina inferior derecha)
+        resize_indicator = QLabel("⇲ Redimensionable")
+        resize_indicator.setFont(QFont("Segoe UI", 8))
+        resize_indicator.setStyleSheet("""
+            color: #666;
+            background: transparent;
+            padding: 4px 8px;
+            font-style: italic;
+        """)
+        resize_indicator.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+        resize_indicator.setToolTip("Arrastra el borde del contenedor para cambiar la altura de la miniatura")
+        content_layout.addWidget(resize_indicator)
+
         content_layout.addStretch()
         main_layout.addLayout(content_layout, stretch=1)
 
@@ -335,15 +353,18 @@ class ImageItemWidget(QFrame):
         return btn
 
     def _apply_styles(self):
-        """Aplicar estilos CSS - Similar a ItemButton"""
+        """Aplicar estilos CSS - Consistente con items normales"""
         self.setStyleSheet("""
-            QFrame {
+            ImageItemWidget {
                 background-color: #2d2d2d;
-                border: none;
-                border-bottom: 1px solid #1e1e1e;
+                border: 1px solid #444444;
+                border-radius: 6px;
+                padding: 12px;
+                margin: 8px 15px 8px 60px;
             }
-            QFrame:hover {
+            ImageItemWidget:hover {
                 background-color: #3d3d3d;
+                border-color: #00ff88;
             }
             QLabel {
                 color: #cccccc;
@@ -463,11 +484,12 @@ class ImageItemWidget(QFrame):
             search_text: Texto buscado
         """
         self.setStyleSheet("""
-            QFrame {
+            ImageItemWidget {
                 background-color: #3d3d3d;
-                border: none;
-                border-left: 3px solid #FFD700;
-                border-bottom: 1px solid #FFD700;
+                border: 2px solid #FFD700;
+                border-radius: 6px;
+                padding: 12px;
+                margin: 8px 15px 8px 60px;
             }
             QLabel {
                 color: #cccccc;
