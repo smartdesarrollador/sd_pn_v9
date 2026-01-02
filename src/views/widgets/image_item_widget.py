@@ -38,9 +38,9 @@ Fecha: 2026-01-01
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QFrame
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QFrame, QApplication
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QFont, QCursor
 import os
 import logging
@@ -267,6 +267,30 @@ class ImageItemWidget(QFrame):
         self.detail_btn.clicked.connect(self.detail_clicked.emit)
         top_bar_layout.addWidget(self.detail_btn)
 
+        # Eliminar
+        self.delete_btn = QPushButton("🗑️")
+        self.delete_btn.setFixedSize(28, 28)
+        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.delete_btn.setToolTip("Eliminar item")
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d32f2f;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                font-size: 12pt;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #b71c1c;
+            }
+            QPushButton:pressed {
+                background-color: #8b0000;
+            }
+        """)
+        self.delete_btn.clicked.connect(self.delete_clicked.emit)
+        top_bar_layout.addWidget(self.delete_btn)
+
         main_layout.addLayout(top_bar_layout)
 
         # ===== LABEL DEL TÍTULO (CENTRADO) =====
@@ -460,14 +484,58 @@ class ImageItemWidget(QFrame):
             logger.warning(f"No se puede abrir visor: imagen no encontrada en {self.image_path}")
 
     def _on_copy_clicked(self):
-        """Copiar ruta de imagen al portapapeles"""
+        """Copiar imagen al portapapeles y mostrar efecto visual verde"""
         try:
-            import pyperclip
-            pyperclip.copy(self.image_path)
-            logger.info(f"Ruta de imagen copiada: {self.image_path}")
-            self.item_copied.emit(self.item_data)
+            # Copiar la IMAGEN al portapapeles (no la ruta)
+            if self.original_pixmap and not self.original_pixmap.isNull():
+                clipboard = QApplication.clipboard()
+                clipboard.setPixmap(self.original_pixmap)
+                logger.info(f"✅ Imagen copiada al portapapeles: {self.image_path}")
+
+                # Emitir señal de item copiado
+                self.item_copied.emit(self.item_data)
+
+                # Efecto visual: Cambiar botón a verde
+                self._show_copy_success_effect()
+            else:
+                # Si no hay pixmap, copiar la ruta como fallback
+                import pyperclip
+                pyperclip.copy(self.image_path)
+                logger.info(f"⚠️ Pixmap no disponible, copiada ruta de texto: {self.image_path}")
+                self.item_copied.emit(self.item_data)
+
         except Exception as e:
-            logger.error(f"Error al copiar ruta de imagen: {e}")
+            logger.error(f"❌ Error al copiar imagen: {e}")
+            # Fallback: copiar ruta como texto
+            try:
+                import pyperclip
+                pyperclip.copy(self.image_path)
+                logger.info(f"Fallback: ruta copiada como texto")
+            except:
+                pass
+
+    def _show_copy_success_effect(self):
+        """Mostrar efecto visual de copiado exitoso (botón verde por 2 segundos)"""
+        # Guardar estilo original
+        original_style = self.copy_btn.styleSheet()
+
+        # Cambiar a verde
+        self.copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00ff88;
+                color: #000000;
+                border: none;
+                border-radius: 4px;
+                font-size: 12pt;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #00cc66;
+            }
+        """)
+
+        # Restaurar estilo original después de 2 segundos
+        QTimer.singleShot(2000, lambda: self.copy_btn.setStyleSheet(original_style))
 
     def has_match(self, search_text: str) -> bool:
         """

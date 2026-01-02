@@ -51,8 +51,18 @@ class ImageGalleryController(QObject):
         self.db = db_manager
         self.main_controller = main_controller
 
-        # Thumbnail cache
-        self.thumbnail_cache = ThumbnailCache()
+        # Thumbnail cache - Usar ruta configurada en files_base_path
+        base_path = self.db.get_setting('files_base_path', '')
+        if base_path:
+            # Crear carpeta temp/thumbnails dentro de la ruta configurada
+            import os
+            cache_dir = os.path.join(base_path, 'temp', 'thumbnails')
+            self.thumbnail_cache = ThumbnailCache(cache_dir=cache_dir)
+            logger.info(f"ThumbnailCache usando ruta configurada: {cache_dir}")
+        else:
+            # Si no hay configuración, usar ruta por defecto
+            self.thumbnail_cache = ThumbnailCache()
+            logger.warning("files_base_path no configurado, usando ruta por defecto para thumbnails")
 
         # Estado de paginación
         self.current_page = 1
